@@ -1,0 +1,348 @@
+{
+  "$id": "telco-revenue-assurance-agent/tools",
+  "title": "Agent and scoring tools (frozen)",
+  "description": "Frozen I/O for the four tools. The agent and the scoring job call these tools only. They do not call model HTTP APIs and do not know Flask vs KServe, paths, or wire formats. Each predict_* tool owns backend mapping (including 0/1 → labels). Swapping a serving runtime must not change these schemas. No billing-month argument. No hardcoded region names. Domain labels have no leading colon.",
+  "tools": [
+    {
+      "name": "query_db",
+      "description": "Filter and optionally group rows in the synthetic store. Allowed tables and columns only. Use this to slice by region, plan_type, or stored prediction before calling a predict_* tool.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["table"],
+        "properties": {
+          "table": {
+            "type": "string",
+            "enum": [
+              "customers",
+              "customer_cycles",
+              "transactions",
+              "churn_scores",
+              "fraud_scores",
+              "qoe_scores"
+            ]
+          },
+          "filters": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "AND of equality / IN predicates. Omit a key for no constraint. Only keys that exist on the chosen table may be set.",
+            "properties": {
+              "customer_id": { "type": "string" },
+              "customer_ids": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "transaction_id": { "type": "string" },
+              "region": { "type": "string" },
+              "plan_type": { "type": "string", "enum": ["prepaid", "postpaid"] },
+              "prediction": {
+                "type": "string",
+                "enum": ["Will Churn", "Will Not Churn", "Fraud", "Non-Fraud"]
+              },
+              "billing_cycle_start": {
+                "type": "string",
+                "description": "ISO date. Allowed on customer_cycles and churn_scores only. Does not select which cycle predict_churn scores."
+              }
+            }
+          },
+          "group_by": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["region", "plan_type", "prediction"]
+            },
+            "description": "When set, return grouped counts instead of row objects. region requires joining customers when the table has no region column."
+          },
+          "columns": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Subset of columns from schema.sql for the chosen table. Ignored when group_by is set. Default: all columns of that table."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Row cap when group_by is absent. group_by returns every group."
+          }
+        }
+      },
+      "returns": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["table", "row_count", "rows"],
+        "properties": {
+          "table": { "type": "string" },
+          "group_by": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "row_count": { "type": "integer", "minimum": 0 },
+          "rows": {
+            "type": "array",
+            "items": { "type": "object" },
+            "description": "Ungrouped: objects whose keys are table columns. Grouped: group keys plus count (integer)."
+          }
+        }
+      }
+    },
+    {
+      "name": "predict_churn",
+      "description": "Batch-score customers for churn from domain cycle fields. Callers pass the latest billing_cycle_start row per customer (scoring and the agent do that selection). There is no month argument. Do not pass has_churned. Returns domain labels Will Churn / Will Not Churn.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["customers"],
+        "properties": {
+          "customers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "customer_id",
+                "billing_cycle_start",
+                "billing_cycle_end",
+                "call_minutes",
+                "data_usage_gb",
+                "sms_count",
+                "internet_sessions",
+                "total_bill_amount",
+                "payment_status",
+                "payment_due_date",
+                "late_fee",
+                "discounts_applied",
+                "support_interaction_count",
+                "resolution_time_minutes",
+                "satisfaction_score",
+                "escalation_flag"
+              ],
+              "properties": {
+                "customer_id": { "type": "string" },
+                "billing_cycle_start": {
+                  "type": "string",
+                  "description": "ISO date of the cycle being scored (must be the latest cycle for this customer_id in v1)"
+                },
+                "billing_cycle_end": { "type": "string" },
+                "call_minutes": { "type": "integer" },
+                "data_usage_gb": { "type": "number" },
+                "sms_count": { "type": "integer" },
+                "internet_sessions": { "type": "integer" },
+                "total_bill_amount": { "type": "number" },
+                "payment_status": {
+                  "type": "string",
+                  "enum": ["Paid", "Partial", "Unpaid"]
+                },
+                "payment_due_date": { "type": "string" },
+                "late_fee": { "type": "number" },
+                "discounts_applied": { "type": "number" },
+                "support_interaction_count": { "type": "integer" },
+                "last_interaction_date": { "type": ["string", "null"] },
+                "primary_issue_type": {
+                  "type": ["string", "null"],
+                  "enum": ["Billing", "Technical", "Service Quality", null]
+                },
+                "resolution_time_minutes": { "type": "integer" },
+                "satisfaction_score": { "type": "integer" },
+                "escalation_flag": { "type": "boolean" },
+                "support_channel": {
+                  "type": ["string", "null"],
+                  "enum": ["Phone", "Chat", "Email", null]
+                }
+              }
+            }
+          }
+        }
+      },
+      "returns": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "customer_count",
+          "churn_count",
+          "churn_rate"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "customer_id",
+                "billing_cycle_start",
+                "prediction"
+              ],
+              "properties": {
+                "customer_id": { "type": "string" },
+                "billing_cycle_start": {
+                  "type": "string",
+                  "description": "ISO date echoed from the input cycle that was scored"
+                },
+                "prediction": {
+                  "type": "string",
+                  "enum": ["Will Churn", "Will Not Churn"]
+                }
+              }
+            }
+          },
+          "customer_count": { "type": "integer", "minimum": 0 },
+          "churn_count": { "type": "integer", "minimum": 0 },
+          "churn_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    {
+      "name": "predict_fraud",
+      "description": "Batch-score transactions for fraud from domain RAFM fields. plan_type is prepaid|postpaid (not one-hot). Do not pass fraud. Returns domain labels Fraud / Non-Fraud. Does not rewrite transactions.fraud.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["transactions"],
+        "properties": {
+          "transactions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "transaction_id",
+                "customer_id",
+                "call_duration",
+                "data_usage",
+                "sms_count",
+                "roaming_indicator",
+                "mobile_wallet_use",
+                "plan_type",
+                "cost",
+                "cellular_location_distance",
+                "personal_pin_used",
+                "avg_call_duration",
+                "avg_data_usage",
+                "avg_cost"
+              ],
+              "properties": {
+                "transaction_id": { "type": "string" },
+                "customer_id": { "type": "string" },
+                "call_duration": { "type": "number" },
+                "data_usage": { "type": "number" },
+                "sms_count": { "type": "integer" },
+                "roaming_indicator": { "type": "integer", "enum": [0, 1] },
+                "mobile_wallet_use": { "type": "integer", "enum": [0, 1] },
+                "plan_type": {
+                  "type": "string",
+                  "enum": ["prepaid", "postpaid"]
+                },
+                "cost": { "type": "number" },
+                "cellular_location_distance": { "type": "number" },
+                "personal_pin_used": { "type": "integer", "enum": [0, 1] },
+                "avg_call_duration": { "type": "number" },
+                "avg_data_usage": { "type": "number" },
+                "avg_cost": { "type": "number" }
+              }
+            }
+          }
+        }
+      },
+      "returns": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "transaction_count",
+          "fraud_count",
+          "fraud_rate"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["transaction_id", "customer_id", "prediction"],
+              "properties": {
+                "transaction_id": { "type": "string" },
+                "customer_id": { "type": "string" },
+                "prediction": {
+                  "type": "string",
+                  "enum": ["Fraud", "Non-Fraud"]
+                }
+              }
+            }
+          },
+          "transaction_count": { "type": "integer", "minimum": 0 },
+          "fraud_count": { "type": "integer", "minimum": 0 },
+          "fraud_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    {
+      "name": "predict_qoe",
+      "description": "Batch-score locations for QoE from domain location fields. customer_id is optional passthrough so scoring can persist per customer. Returns qoe, download, upload, latency. The tool may drop backend-only extras (for example satellite counts).",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["locations"],
+        "properties": {
+          "locations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["latitude", "longitude", "season", "weather"],
+              "properties": {
+                "customer_id": { "type": "string" },
+                "latitude": { "type": "number" },
+                "longitude": { "type": "number" },
+                "season": {
+                  "type": "string",
+                  "enum": ["Spring", "Summer", "Fall", "Winter"]
+                },
+                "weather": {
+                  "type": "string",
+                  "enum": [
+                    "Clear",
+                    "Rain",
+                    "Light_Rain",
+                    "Moderate_Rain",
+                    "Heavy_Rain",
+                    "Dense_Fog",
+                    "Snow"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "returns": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "location_count", "avg_qoe"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["qoe", "download", "upload", "latency"],
+              "properties": {
+                "customer_id": { "type": "string" },
+                "qoe": { "type": "number" },
+                "download": { "type": "integer" },
+                "upload": { "type": "integer" },
+                "latency": { "type": "integer" }
+              }
+            }
+          },
+          "location_count": { "type": "integer", "minimum": 0 },
+          "avg_qoe": { "type": "number" }
+        }
+      }
+    }
+  ]
+}
