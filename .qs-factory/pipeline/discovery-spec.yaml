@@ -1,0 +1,109 @@
+spec_version: 1
+quickstart_name: "Telco Revenue Assurance Agent"
+slug: telco-revenue-assurance-agent
+skill: rh-qs-discovery
+created_at: "2026-09-16T07:12:00Z"
+
+inputs:
+  prior_manifests: []
+  user_inputs:
+    - type: document
+      source: "Telco-AIX Quickstart.md — dashboard + ReAct agent wrapping three existing Telco-AIX model APIs (churn, RAFM fraud, Starlink QoE) with a synthetic customer/transaction database"
+    - type: conversation
+      source: "Interview answers 2026-09-16: primary user is analyst; OpenShift AI only; LLM default on-cluster with remote fallback if no GPU/resources; v1 models on OpenShift AI; dashboard on-demand; scale from combined experiment datasets with synthetic fill; no v1 compliance; issue tracking in Jira; product title Telco Revenue Assurance Agent, full subtitle on README"
+    - type: conversation
+      source: "Grill round 1: faithful join of original experiment rows (keep original fields because models trained on that data); link via customer_id; add Starlink-style location/season/weather; fill empty fields from the same empirical distributions so the synthetic world stays consistent. Revenue-at-risk ranking is story only. Analyst triggers on-demand scoring from the dashboard. LLM identity left to architecture. Evaluated = verified canned demo path, no eval product. No latency SLA; flow should feel reasonable. Jira project later."
+    - type: conversation
+      source: "Grill round 2 + HF dataset cards: keep all rows — churn ~113k (Omer1234567/telco-churn-synthetic, 112,552 billing-cycle rows with existing CustomerID), Starlink 100k (fenar/starlink), RAFM 1M (fenar/revenue_assurance). Several RAFM transactions per customer_id, keep per-customer column consistency (details later in DB task). Plant QoE–churn regional coupling with nearby locations forming an area; outlier region need not be West. Assign original Starlink lat/lon grouped into regions; generate season/weather so the same area at the same synthetic time has the same or close values (Starlink class labels, not copied per-row with the coordinates)."
+    - type: conversation
+      source: "PRD refinement 2026-09-17: season and weather are generated for area/time coherence, not taken from the same Starlink row as lat/lon. Coordinates stay original Starlink points. Same area at the same time means same or close season and weather."
+
+interview_plan:
+  completed_sections:
+    - section: use_case_summary
+      source: interview
+      confidence: high
+      summary: "Primary in-app user is a revenue-assurance / churn / fraud analyst. Dashboard aggregates three model predictions; agent cross-references them into insight. Ranking by revenue at risk is operator story only, not a shipped ranking feature. Quickstart is a running, verified-demo reference on OpenShift AI."
+    - section: user_flows
+      source: interview
+      confidence: high
+      summary: "Analyst triggers on-demand scoring from the dashboard. Dashboard then shows summary metrics. Analyst asks the chatbot why; agent slices by segment and calls predict_churn / predict_fraud / predict_qoe; returns insight and a suggested action. Chat should feel reasonable; no numeric latency SLA."
+    - section: data_model
+      source: interview
+      confidence: high
+      summary: "The project works with synthetic data from the three experiment datasets, not live operator data. Keep all original experiment rows. Churn spine uses existing CustomerID (billing-cycle grain, ~113k rows). RAFM 1M transactions attached many-to-one on customer_id with per-customer consistency on columns that should not vary. Original Starlink lat/lon assigned to customers, grouped so nearby locations form a region. Season and weather are generated (Starlink class labels) so the same area at the same synthetic time has the same or close values — not copied from the same Starlink row as the coordinates. Empty required fields filled from empirical column distributions. Plant a tunable regional QoE–churn coupling; the high-churn/low-QoE area is not required to be West. Exact per-customer RAFM consistency rules left to the DB-generation task."
+    - section: ai_touchpoints
+      source: interview
+      confidence: high
+      summary: "ReAct agent with four tools plus an LLM. LLM default is on-cluster; remote endpoint if the cluster cannot support it. Specific LLM left to architecture. The three experiment models are served on OpenShift AI in v1. New value is orchestration; models are not retrained for v1."
+    - section: constraints_and_non_goals
+      source: interview
+      confidence: high
+      summary: "Project-wide: synthetic data from the three experiment datasets only; no live operator data. v1 non-goals: local podman, scheduled rescoring, service assurance experiment, live weather tool (season/weather are generated per area/time), automated alerts, retraining all models on synthetic telco-only QoE, v1 compliance/PII/audit requirements, distinct revenue-at-risk ranking feature, numeric chat latency SLA, separate eval/ROI product, Starlink map UI, claiming dollar-figure outcomes. Issue tracking is Jira (project later)."
+    - section: deploy_target
+      source: interview
+      confidence: high
+      summary: "OpenShift AI only. GPU optional: default on-cluster LLM if resources exist; remote endpoint fallback otherwise. Working set is the full combined experiment sizes (~113k churn rows, 100k Starlink samples, 1M RAFM transactions), not operator production scale."
+
+  remaining_questions: []
+
+  gap_questions:
+    - question: "Which Jira project/instance should the tracking ticket live in?"
+      relevance: "User will fill later; PRD header stays Jira (project not specified)."
+    - question: "Proceed without a live GitHub backlog duplicate check?"
+      relevance: "gh/GitHub fetch was skipped this session; local slug list has no telco/churn/fraud match. User continued discovery, treated as proceed-as-unique."
+
+backlog_check:
+  status: unique
+  matches: []
+  decision: proceed
+  decision_rationale: "GitHub backlog fetch was skipped (network permission declined). Local .rhoai-qs slugs have no telco/churn/fraud/QoE overlap. User continued discovery after that disclosure and did not name an existing issue."
+
+issue_destination:
+  repo: "Jira (project not yet specified)"
+  issue_url: ""
+
+acceptance_criteria:
+  - id: ac-1
+    description: "PRD has a concrete problem statement with target persona"
+    validation: "manual review"
+    requires_user_approval: true
+  - id: ac-2
+    description: "At least one user flow is described step by step"
+    validation: "manual review"
+    requires_user_approval: true
+  - id: ac-3
+    description: "AI touchpoints are identified with rationale"
+    validation: "manual review"
+    requires_user_approval: true
+  - id: ac-4
+    description: "Deploy target is specified with GPU determination"
+    validation: "manual review"
+    requires_user_approval: true
+  - id: ac-5
+    description: "Scope boundaries are defined with at least one non-goal"
+    validation: "manual review"
+    requires_user_approval: true
+  - id: ac-6
+    description: "No invented requirements — all PRD content traces to user input"
+    validation: "manual review"
+    requires_user_approval: true
+
+validation_rules:
+  - id: vr-1
+    check: "All required PRD sections have content (use_case_summary, user_flows, data_model, ai_touchpoints, deploy_target, constraints_and_non_goals)"
+    severity: blocker
+  - id: vr-2
+    check: "AI touchpoints section identifies at least one AI capability — if none, the quickstart should be rejected"
+    severity: blocker
+  - id: vr-3
+    check: "Backlog check was performed and result recorded"
+    severity: blocker
+  - id: vr-4
+    check: "Slug follows naming convention (lowercase, hyphenated, no special characters)"
+    severity: blocker
+  - id: vr-5
+    check: "Open questions section exists (may be empty if all questions resolved)"
+    severity: warning
+
+dependencies: []
