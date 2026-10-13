@@ -1,0 +1,46 @@
+input_features:
+  components:
+    - api
+    - ui
+    - db
+    - data-generator
+    - ml-serving
+  tech_stack:
+    - python
+    - llama-stack
+    - llama-3.1-8b-instruct
+    - postgresql
+    - react
+    - fastapi
+    - OGX
+    - vLLM
+    - pgvector
+    - KServe
+  ai_pattern:
+    - agents
+    - tool-calling
+    - classification
+    - tabular-ml
+    - text-generation
+  platform:
+    - openshift-ai
+    - gpu-optional
+    - helm
+  data_layer:
+    - relational-db
+    - synthetic-data
+    - huggingface-datasets
+
+deployment_questions:
+  - How should tool caching be implemented for repeated predictions?
+  - What is the implementation strategy for generating the synthetic joined dataset with the specified join rules and regional coupling?
+  - For each of the three models, assess artifact format compatibility for native serving (KServe/MLServer/OpenVINO/Triton) vs Flask wrapper
+
+decision_points:
+  - Agent orchestration framework not specified — Llama Stack, LangChain, or custom implementation?
+  - Specific LLM model not chosen — PRD says "left to architecture" with L4/A10 sizing — confirm model selection
+  - Model serving approach per model explicitly not frozen — Flask vs KServe with MLServer vs OpenVINO Model Server vs Triton vs custom ServingRuntime
+  - Database technology not specified — PostgreSQL, MySQL, or alternative for the relational customer/transaction store?
+  - UI framework not specified — React, Vue, or alternative for the web dashboard?
+  - API framework not specified — FastAPI, Flask, or alternative for the agent backend?
+  - RAFM consistency rules (which columns must be constant per customer_id) deferred to database-generation task

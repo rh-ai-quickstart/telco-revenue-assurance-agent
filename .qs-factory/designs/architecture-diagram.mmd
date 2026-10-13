@@ -1,0 +1,24 @@
+```mermaid
+flowchart TB
+  User -->|HTTP| Route[OpenShift Route]
+  Route --> Frontend[React Dashboard]
+  Frontend -->|REST 🔒| Backend[FastAPI API]
+  Backend -->|SQL 🔒| DB{{PostgreSQL + pgvector}}
+  Backend --> OGX{{ogx-ai}}
+  OGX -->|OpenAI API| LLM{{llm-service / vLLM}}
+  OGX -->|Python SDK| PredTools[Prediction Tools + Cache]
+  OGX -->|Python SDK| DataFetch[Data Fetch Tool]
+  PredTools -->|Customer IDs| DataFetch
+  DataFetch -->|SQL 🔒| DB
+  PredTools -->|KServe v2 🔒| ChurnModel[KServe: Churn Model]
+  PredTools -->|KServe v2 🔒| FraudModel[KServe: Fraud Model]
+  PredTools -->|KServe v2 🔒| QoEModel[KServe: QoE Model]
+  DataGen[Data Generator] -->|SQL| DB
+
+  subgraph legend [Legend]
+    direction LR
+    L_other[Not a subchart]
+    L_chart{{Ready subchart}}
+    L_sec["🔒 = Auth/secrets"]
+  end
+```

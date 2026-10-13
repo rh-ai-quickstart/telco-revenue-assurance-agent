@@ -1,0 +1,366 @@
+# ─── Header ───────────────────────────────────────────────────
+spec_version: 1
+quickstart_name: "Telco Revenue Assurance Agent: Quality, Churn & Fraud Insights"
+slug: telco-revenue-assurance-agent
+skill: rh-qs-architect
+created_at: "2026-09-23T00:00:00Z"
+
+# ─── Technology Stack ─────────────────────────────────────────
+technology_stack:
+  frontend: "React 19 with TypeScript, Vite build, TanStack Router/Query for routing and state management"
+  backend: "FastAPI with Python 3.12+, UV package manager, Pydantic v2 for validation, SQLAlchemy 2 async ORM"
+  database: "PostgreSQL"
+  vector_db: "Not required (no vector search or RAG in v1)"
+  llm_orchestration: "OGX via ai-architecture-charts/ogx-ai"
+  model_serving: "vLLM for Llama 3.1 8B via ai-architecture-charts/llm-service, KServe for ML models (churn/fraud/QoE)"
+  object_storage: "Not required in v1 (models artifacts stored in KServe-compatible locations)"
+  local_runtime: "Not required (OpenShift AI only deployment target)"
+  monorepo: "Turborepo with pnpm and uv"
+  deploy_platform: "Red Hat OpenShift AI"
+
+# ─── Components ───────────────────────────────────────────────
+components:
+  frontend:
+    type: ui
+    role: "Revenue assurance analyst dashboard with chat interface for querying predictions and viewing aggregated metrics"
+    technology: "React 19, TypeScript, Vite"
+    delivery: application
+
+    constraints:
+      - "No latency SLA for chat responses in v1"
+      - "Dashboard displays summary metrics from on-demand scoring runs"
+
+    kb_sources:
+      - path: components/react-frontend.md
+        match_reason: "React UI component patterns with TanStack Router/Query for dashboard and chat"
+
+    dependencies:
+      - component: backend
+        reason: "Consumes REST API for scoring triggers, metrics queries, and chat sessions"
+
+  backend:
+    type: backend
+    role: "FastAPI server orchestrating agent sessions, prediction tool execution, database queries, and scoring workflows"
+    technology: "FastAPI, Python 3.12+, Pydantic v2, SQLAlchemy 2 async"
+    delivery: application
+
+    constraints:
+      - "Handles on-demand scoring (no scheduled jobs in v1)"
+      - "Tools hide serving details from agent (Flask vs KServe abstraction)"
+
+    kb_sources:
+      - path: components/fastapi-backend.md
+        match_reason: "FastAPI backend patterns for agent orchestration, tool execution, and database access"
+      - path: architectures/agent-orchestration.md
+        match_reason: "Agent orchestration patterns for tool-calling workflows"
+
+    dependencies:
+      - component: agent-orchestration
+        reason: "Delegates chat sessions to OGX for LLM reasoning and tool dispatch"
+      - component: database
+        reason: "Queries database directly for dashboard metrics"
+      - component: prediction-tools
+        reason: "Invokes prediction tools for churn/fraud/QoE analysis"
+      - component: data-fetch-tool
+        reason: "Invokes data-fetch tool for direct database queries from backend endpoints"
+
+  agent-orchestration:
+    type: inference
+    role: "OGX agent runtime managing tool calling, LLM reasoning, and session state for analyst queries"
+    technology: "OGX (formerly Llama Stack)"
+    delivery: chart
+
+    chart:
+      name: ai-architecture-charts/ogx-ai
+      version: "TBD during implementation"
+
+    rhoai_features:
+      - feature: "OGX (Technology Preview)"
+        purpose: "Unified gen-AI runtime for agent orchestration with tool calling and OpenAI-compatible APIs"
+
+    constraints:
+      - "Agent uses 4 registered tools: predict_churn, predict_fraud, predict_qoe, and fetch_customer_data"
+      - "Tools abstract serving layer (Flask vs KServe) and data schema from agent"
+
+    kb_sources:
+      - path: components/llamastack.md
+        match_reason: "LlamaStack/OGX orchestration patterns for agents and tool calling"
+      - path: architectures/agent-orchestration.md
+        match_reason: "Agent orchestration patterns for tool-calling workflows"
+      - path: architectures/mcp-tool-integration.md
+        match_reason: "Tool integration patterns for caching implementation"
+
+    dependencies:
+      - component: llm-serving
+        reason: "Consumes LLM inference for reasoning and response generation"
+      - component: prediction-tools
+        reason: "Invokes prediction tools registered in the OGX runtime"
+      - component: data-fetch-tool
+        reason: "Invokes data-fetch tool for customer data queries"
+
+  llm-serving:
+    type: inference
+    role: "vLLM serving Llama 3.1 8B Instruct for agent reasoning and text generation"
+    technology: "vLLM"
+    delivery: chart
+
+    chart:
+      name: ai-architecture-charts/llm-service
+      version: "TBD during implementation"
+
+    rhoai_features:
+      - feature: "Model serving platform (KServe)"
+        purpose: "KServe InferenceService for vLLM deployment with GPU support"
+
+    constraints:
+      - "GPU optional (on-cluster default, remote fallback if cluster lacks resources)"
+      - "Model sized for L4/A10 class GPU"
+      - "Model selection (Llama 3.1 8B) can be changed in future without agent code changes"
+
+    kb_sources:
+      - path: components/vllm.md
+        match_reason: "vLLM serving patterns for Llama models on KServe"
+      - path: components/model-serving.md
+        match_reason: "Model serving deployment patterns for vLLM and KServe integration"
+
+    dependencies: []
+
+  database:
+    type: database
+    role: "PostgreSQL storing customers (churn profile, location, dollar weight) and transactions (RAFM features)"
+    technology: "PostgreSQL with pgvector extension"
+    delivery: chart
+
+    chart:
+      name: ai-architecture-charts/pgvector
+      version: "TBD during implementation"
+
+    constraints:
+      - "Stores full datasets: ~113k customer billing cycles, 100k QoE location samples, 1M RAFM transactions"
+      - "Customer dollar weight = mean of TotalBillAmount across all billing cycles per CustomerID"
+      - "Churn scoring uses latest BillingCycleStart per customer"
+      - "Regional coupling between QoE and churn is tunable and intentional"
+
+    kb_sources:
+      - path: components/pgvector.md
+        match_reason: "PostgreSQL deployment patterns for relational data with synthetic data seeding strategies"
+
+    dependencies:
+      - component: data-generator
+        reason: "Data generator populates customers and transactions tables"
+
+  churn-model-serving:
+    type: inference
+    role: "LightGBM churn prediction model serving per-customer churn risk on latest billing cycle"
+    technology: "LightGBM artifact"
+    delivery: rhoai
+
+    rhoai_features:
+      - feature: "Model serving platform (KServe)"
+        purpose: "KServe InferenceService for churn model (Flask wrapper or native runtime decided at implementation)"
+
+    constraints:
+      - "Uses existing trained artifact from churn experiment (no retraining in v1)"
+      - "Serving approach (Flask vs KServe native with MLServer/OpenVINO/Triton) assessed per model at implementation"
+
+    kb_sources:
+      - path: architectures/model-serving-gateway.md
+        match_reason: "Model serving patterns for KServe with native runtime assessment"
+      - path: deployment/helm-kserve-runtime-deployer-job-inline-rbac.md
+        match_reason: "Runtime switching strategies for KServe deployment"
+      - path: deployment/container-build-mlserver-model-unwrap-multistage.md
+        match_reason: "Artifact format handling for MLServer sklearn runtime"
+
+    dependencies:
+      - component: prediction-tools
+        reason: "Prediction tools wrap this model and handle serving protocol details"
+
+  fraud-model-serving:
+    type: inference
+    role: "Fraud detection model serving per-transaction fraud flags"
+    technology: "Existing RAFM artifact"
+    delivery: rhoai
+
+    rhoai_features:
+      - feature: "Model serving platform (KServe)"
+        purpose: "KServe InferenceService for fraud model (Flask wrapper or native runtime decided at implementation)"
+
+    constraints:
+      - "Uses existing trained artifact from RAFM experiment (no retraining in v1)"
+      - "Serving approach (Flask vs KServe native) assessed per model at implementation"
+
+    kb_sources:
+      - path: architectures/model-serving-gateway.md
+        match_reason: "Model serving patterns for KServe with native runtime assessment"
+      - path: deployment/helm-kserve-mlserver-sklearn-minio-rawdeployment.md
+        match_reason: "KServe InferenceService deployment patterns with MLServer"
+
+    dependencies:
+      - component: prediction-tools
+        reason: "Prediction tools wrap this model and handle serving protocol details"
+
+  qoe-model-serving:
+    type: inference
+    role: "Starlink QoE prediction model serving location-level quality scores"
+    technology: "Existing Starlink artifact"
+    delivery: rhoai
+
+    rhoai_features:
+      - feature: "Model serving platform (KServe)"
+        purpose: "KServe InferenceService for QoE model (Flask wrapper or native runtime decided at implementation)"
+
+    constraints:
+      - "Uses existing trained artifact from Starlink experiment (no retraining in v1)"
+      - "Serving approach (Flask vs KServe native) assessed per model at implementation"
+      - "Current limitation: uses satellite internet data (telecom QoE data is future enhancement)"
+
+    kb_sources:
+      - path: architectures/model-serving-gateway.md
+        match_reason: "Model serving patterns for KServe with native runtime assessment"
+      - path: deployment/makefile-multi-image-runtime-type-deploy-switch.md
+        match_reason: "Runtime switching strategies for deployment"
+
+    dependencies:
+      - component: prediction-tools
+        reason: "Prediction tools wrap this model and handle serving protocol details"
+
+  prediction-tools:
+    type: worker
+    role: "Python prediction tool wrappers (predict_churn, predict_fraud, predict_qoe) hiding serving details from agent"
+    technology: "Python with caching logic"
+    delivery: application
+
+    constraints:
+      - "Tools take domain inputs (customer IDs only) and return domain results (labels/scores)"
+      - "Tools hide serving protocol (Flask vs KServe V2) and data schema from agent"
+      - "Tool caching implemented for repeated predictions to avoid redundant model calls"
+      - "Swapping serving backend (Flask to KServe V2) requires only tool implementation change, not agent code"
+
+    kb_sources:
+      - path: architectures/mcp-tool-integration.md
+        match_reason: "Tool integration patterns for caching implementation addressing deployment question 1"
+
+    dependencies:
+      - component: data-fetch-tool
+        reason: "Fetches required fields for each customer ID before calling model endpoints"
+      - component: churn-model-serving
+        reason: "Calls churn model endpoint (protocol abstracted)"
+      - component: fraud-model-serving
+        reason: "Calls fraud model endpoint (protocol abstracted)"
+      - component: qoe-model-serving
+        reason: "Calls QoE model endpoint (protocol abstracted)"
+
+  data-fetch-tool:
+    type: worker
+    role: "Data access abstraction taking customer IDs and field list, returning structured customer/transaction records"
+    technology: "Python with SQLAlchemy async queries"
+    delivery: application
+
+    constraints:
+      - "Dual-use: called by prediction tools (internal field fetching) and by agent (explicit data queries)"
+      - "Takes list of customer IDs and optional field names, returns structured records"
+      - "Hides database schema details from agent and prediction tools"
+      - "Supports both customer table and transaction table queries"
+
+    kb_sources:
+      - path: components/fastapi-backend.md
+        match_reason: "Database access patterns with SQLAlchemy async for structured queries"
+
+    dependencies:
+      - component: database
+        reason: "Queries customer and transaction tables via SQLAlchemy"
+
+  data-generator:
+    type: worker
+    role: "Python script generating synthetic joined customer/transaction store from HuggingFace datasets"
+    technology: "Python script"
+    delivery: application
+
+    constraints:
+      - "Generates from 3 HuggingFace datasets: Omer1234567/telco-churn-synthetic (~113k rows), fenar/starlink (100k), fenar/revenue_assurance (1M)"
+      - "Joins with customer_id (many transactions to one customer)"
+      - "Assigns Starlink coordinates to customers grouped into regions with tunable QoE-churn coupling"
+      - "Generates season/weather per region (same area gets same/close values at synthetic snapshot time)"
+      - "Dollar weight per customer = mean of TotalBillAmount across all billing cycles"
+      - "Per-customer consistency for columns that should not vary across transactions"
+      - "No empty required fields (fill from empirical probability)"
+      - "Regional outlier is not hardcoded to specific region"
+
+    kb_sources:
+      - path: deployment/helm-seed-job-dual-curl-python-rag-ingestion.md
+        match_reason: "Data seeding job patterns for synthetic dataset generation addressing deployment question 2"
+
+    dependencies:
+      - component: database
+        reason: "Populates customers and transactions tables"
+
+# ─── Integration & Data Flow ──────────────────────────────────
+integration_patterns:
+  protocols:
+    - pair: "Backend/OGX → vLLM"
+      protocol: "OpenAI-compatible HTTP API (vLLM /v1 endpoint)"
+    - pair: "Prediction tools → KServe models"
+      protocol: "KServe v2 inference protocol for churn/fraud/QoE predictions"
+    - pair: "OGX → Prediction tools"
+      protocol: "Python SDK (direct function calls with caching layer)"
+
+  data_flows:
+    - name: "Revenue assurance analysis (full)"
+      path: "Frontend → Backend → OGX agent → vLLM (reasoning) → Prediction tools (customer IDs) → Data-fetch tool → PostgreSQL (field fetch) → KServe models (churn/fraud/QoE) → Analysis result"
+    - name: "Agent data query"
+      path: "Frontend → Backend → OGX agent → Data-fetch tool (customer IDs + fields) → PostgreSQL → Structured response"
+    - name: "Dashboard metrics query"
+      path: "Frontend → Backend → PostgreSQL (direct aggregation) → Metrics response"
+    - name: "Model prediction with caching"
+      path: "Prediction tools (cache check) → Data-fetch tool → KServe InferenceService (if miss) → Cached result"
+    - name: "Data initialization"
+      path: "Data generator → PostgreSQL (seed customers/transactions)"
+
+  security_boundaries:
+    - point: "Frontend → Backend"
+      mechanism: "OAuth2 with RHOAI authentication"
+    - point: "Backend → KServe models"
+      mechanism: "Service account token, network policy to model namespace"
+    - point: "Database access"
+      mechanism: "PostgreSQL credentials via OpenShift secrets"
+    - point: "Model storage"
+      mechanism: "S3/MinIO credentials for KServe model artifacts via OpenShift secrets"
+
+# ─── Architecture Diagram ─────────────────────────────────────
+architecture_diagram_path: .rhoai-qs/telco-revenue-assurance-agent/designs/architecture-diagram.mmd
+
+# ─── Testing Strategy ─────────────────────────────────────────
+testing_strategy:
+  profile: standard
+
+  unit_tests:
+    python:
+      scope: "Routes, schemas, services, prediction tools, data generator logic"
+      runs_on: "Every PR (pr-checks / ci.yaml)"
+    typescript:
+      scope: "Components, hooks, dashboard rendering"
+      runs_on: "Every PR"
+
+  integration_tests:
+    scope: "API + DB + in-cluster services (OGX agent, prediction tools, KServe models)"
+    runs_on: "PR E2E workflow (rh-qs-test-suite)"
+
+  e2e_tests:
+    scope: "Canned demo questions (why high churn, fraud overlap, priority region) against synthetic data"
+    runs_on: "pull_request_target or nightly"
+
+  helm_validation:
+    scope: "Exported manifests valid (chart linting, template rendering)"
+    runs_on: "Every PR"
+
+# ─── Dependencies ─────────────────────────────────────────────
+dependencies:
+  - spec: .rhoai-qs/telco-revenue-assurance-agent/prds/prd.md
+    fields_used: [use_case_summary, user_flows, data_model, ai_touchpoints, deploy_target, constraints]
+    content_hash: "sha256:99e986286746a147da622f7b1d17b213e80e355e05a8f570d0c8dc62a2228751"
+  - spec: .rhoai-qs/telco-revenue-assurance-agent/pipeline/prd-features.yaml
+    fields_used: [input_features, deployment_questions, decision_points]
+    content_hash: "sha256:48628815f4624f04a8c97216c8a78481a57f6a8f6e09efd3d4389d6913f2f687"
+  - spec: .rhoai-qs/telco-revenue-assurance-agent/pipeline/kb-scores.yaml
+    fields_used: [results]
+    content_hash: "sha256:b5596372c2fe8a1ca7130d8e42b235abcea0975e588ddca4b808d052b1829f49"
