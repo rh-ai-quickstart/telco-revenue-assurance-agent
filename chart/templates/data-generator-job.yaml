@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "telco.fullname" . }}-data-generator
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "data-generator") | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install{{ if .Values.dataGenerator.runOnUpgrade }},post-upgrade{{ end }}
+    helm.sh/hook-weight: "3"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.dataGenerator.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.dataGenerator.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "telco.componentSelector" (dict "root" . "component" "data-generator") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "telco.serviceAccount" (dict "root" . "suffix" "data-generator") }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.securityContext.pod | nindent 8 }}
+      containers:
+        - name: load-source-datasets
+          image: {{ printf "%s:%s" .Values.dataGenerator.image .Values.image.tag | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["data-generator"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataGenerator.databaseSecretName }}
+                  key: {{ .Values.dataGenerator.databaseSecretKey }}
+            - name: GENERATOR_SEED
+              value: {{ .Values.dataGenerator.generatorSeed | quote }}
+            - name: REGIONAL_QOE_CHURN_COUPLING
+              value: {{ .Values.dataGenerator.regionalQoeChurnCoupling | quote }}
+            - name: INGEST_BATCH_SIZE
+              value: {{ .Values.dataGenerator.ingestBatchSize | quote }}
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: HOME
+              value: /tmp
+            - name: TMPDIR
+              value: /tmp
+            - name: HF_HOME
+              value: /tmp/huggingface
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.dataGenerator.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,25 @@
+[project]
+name = "telco-data-fetch-tool"
+version = "0.1.0"
+description = "Read-only MCP service for allowlisted telco revenue-assurance data."
+requires-python = ">=3.12"
+dependencies = [
+  "asyncpg>=0.30,<1",
+  "fastmcp>=3.4,<5",
+  "sqlalchemy[asyncio]>=2.0.36,<3",
+  "telco-qs-common",
+]
+
+[build-system]
+requires = ["hatchling>=1.26,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/data_fetch_tool"]
+
+[tool.uv.sources]
+telco-qs-common = { workspace = true }
+
+[tool.ruff]
+extend = "../../packages/configs/ruff.toml"
+

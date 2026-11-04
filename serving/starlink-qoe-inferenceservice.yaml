@@ -1,0 +1,47 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: starlink-qoe
+  namespace: starlink
+  annotations:
+    modelFormat: onnx
+    opendatahub.io/connection-path: models/starlink-qoe
+    opendatahub.io/connections: starlink-data-connection
+    opendatahub.io/model-type: predictive
+    openshift.io/description: Starlink QoE prediction model
+    openshift.io/display-name: starlink-qoe
+    # Standard is the raw Kubernetes deployment mode on the target cluster.
+    serving.kserve.io/deploymentMode: Standard
+  labels:
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: "true"
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: RollingUpdate
+    maxReplicas: 3
+    minReplicas: 1
+    model:
+      # Set this on the model: KServe overrides the ServingRuntime URI default.
+      env:
+        - name: MLSERVER_MODEL_URI
+          value: /mnt/models/1/model.onnx
+      modelFormat:
+        name: onnx
+        version: "1"
+      name: ""
+      protocolVersion: v2
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: "1"
+          memory: 2Gi
+      runtime: mlserver-runtime
+      storage:
+        key: starlink-data-connection
+        path: models/starlink-qoe
+    serviceAccountName: starlink-data-connection-sa
+    timeout: 60

@@ -1,0 +1,15 @@
+{
+  "status": "prepared_not_deployed",
+  "name": "telco-model-probe-3c43ff12216a",
+  "namespace": "telco-revenue-assurance-agent",
+  "image": "quay.io/yelias/prediction-tools@sha256:64f3e41745b315369b8e004d01074c3fa8c87f3d93e9c7f601f8f9e71c56036f",
+  "config_sha256": "cfec25de00d04aebaee0338c530c531b0f16f8007cc6d4bf7715d2eb2d050909",
+  "script_sha256": "47a9d03ee7d8cc4504ae10392289762edde42416ab92878d656951004dd82292",
+  "rendered_prediction_source_sha256": "b89c565a4db6949e3989d07d9954403febf074d4cb33c8b1d58fa78af6a20ce9",
+  "data_rows_per_model": 100,
+  "model_calls_per_model": 4,
+  "automatic_retries": 0,
+  "job_timeout_seconds": 360,
+  "diagnostic_ready_condition": "Deliberately false to prevent production Service selecting the diagnostic pod",
+  "full_application_e2e_claimed": false
+}

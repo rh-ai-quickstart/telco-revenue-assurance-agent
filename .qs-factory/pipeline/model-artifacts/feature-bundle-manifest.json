@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "source": {
+    "bucket": "mybucket",
+    "prefix": "models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/"
+  },
+  "models": {
+    "churn": {
+      "model_name": "churn-prediction",
+      "model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805"
+    },
+    "fraud": {
+      "model_name": "fraud-prediction",
+      "model_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7"
+    },
+    "qoe": {
+      "model_name": "starlink-qoe",
+      "model_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f"
+    }
+  },
+  "files": {
+    "churn.json": {
+      "sha256": "1dba9f18641336ab9e1acfd4825d2533279b4527b5f82a56f7ca9aeaaffb6e3b",
+      "size_bytes": 529
+    },
+    "fraud.json": {
+      "sha256": "fc3fa1f51aa53c5d64e67a74dfe24022f5fb3cf34369d7eeca276334dbd9c375",
+      "size_bytes": 590
+    },
+    "label_encoders.joblib": {
+      "sha256": "8c6215c1e5b1e47348d41b0e3f0da391454959b01cc28cac468ebc4a09dd1437",
+      "size_bytes": 815
+    },
+    "qoe.json": {
+      "sha256": "c7b718c6bbba099e39bc85ebaf189a1fc5298a02e3b55c466e263c493ecd10ab",
+      "size_bytes": 463
+    },
+    "scaler.joblib": {
+      "sha256": "af0afda7ce3970430d4179058a1d69aa099b9100e4bb1745c709948cf7f4d3cf",
+      "size_bytes": 1159
+    }
+  }
+}

@@ -1,0 +1,102 @@
+contract_id: database-connection
+kind: typed-interface
+version: 1
+provider: database
+consumers:
+  - backend
+  - agent-orchestration
+  - data-fetch-tool
+  - data-generator
+database:
+  engine: PostgreSQL 17 with pgvector extension available; vector columns are unused in v1.
+  database_name: telco_revenue_assurance
+  application_schema: app
+  ogx_state_schema: ogx_state
+  application_schema_version: 1
+  dsn_format: Driver-qualified PostgreSQL URI accepted by each consumer; Python uses the SQLAlchemy asyncpg dialect and OGX uses the PostgreSQL URI supported by its pinned chart.
+secret_bindings:
+  backend:
+    environment_variable: DATABASE_URL
+    database_role: telco_api_rw
+    secret_value: Async PostgreSQL DSN supplied through an OpenShift Secret reference.
+  data_fetch_tool:
+    environment_variable: DATABASE_READONLY_URL
+    database_role: telco_data_ro
+    secret_value: Async PostgreSQL DSN supplied through an OpenShift Secret reference.
+  data_generator:
+    environment_variable: DATABASE_URL
+    database_role: telco_seed_rw
+    secret_value: Async PostgreSQL DSN supplied through a workload-specific OpenShift Secret reference.
+  agent_orchestration:
+    environment_variable: OGX_DATABASE_URL
+    database_role: telco_ogx_rw
+    secret_value: PostgreSQL DSN supplied through an OpenShift Secret reference.
+  migration_job:
+    environment_variable: MIGRATION_DATABASE_URL
+    database_role: telco_migrate
+    secret_value: Migration-only DSN supplied through an OpenShift Secret reference.
+role_capabilities:
+  telco_api_rw:
+    allow: Read source entities; read and write scoring_runs; read and write predictions.
+    deny: DDL; access to ogx_state; changing source rows.
+  telco_data_ro:
+    allow: SELECT on customers, billing_cycles, transactions, qoe_samples, scoring_runs, and predictions.
+    deny: INSERT, UPDATE, DELETE, DDL, and access to ogx_state.
+  telco_seed_rw:
+    allow: INSERT and idempotent UPDATE of customers, billing_cycles, transactions, and qoe_samples.
+    deny: DDL; writing scoring_runs or predictions; access to ogx_state.
+  telco_ogx_rw:
+    allow: OGX-owned conversation and metadata state in ogx_state only.
+    deny: Access to app source/result tables and DDL outside its managed state schema.
+  telco_migrate:
+    allow: DDL required by the versioned migration job.
+    deny: Use by serving application pods or interactive requests.
+python_interface: |
+  ```python
+  from collections.abc import AsyncIterator
+  from typing import Literal, Protocol
+
+  from pydantic import BaseModel, PositiveInt, SecretStr
+  from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+
+  DatabaseRole = Literal[
+      "telco_api_rw",
+      "telco_data_ro",
+      "telco_seed_rw",
+      "telco_ogx_rw",
+      "telco_migrate",
+  ]
+
+  class DatabaseSettings(BaseModel):
+      dsn: SecretStr
+      role: DatabaseRole
+      connect_timeout_seconds: PositiveInt
+      pool_timeout_seconds: PositiveInt
+      statement_timeout_milliseconds: PositiveInt
+      pool_size: PositiveInt
+
+  class DatabaseProvider(Protocol):
+      def create_engine(self, settings: DatabaseSettings) -> AsyncEngine: ...
+      def create_session_factory(
+          self, engine: AsyncEngine
+      ) -> async_sessionmaker[AsyncSession]: ...
+      def session(
+          self, factory: async_sessionmaker[AsyncSession]
+      ) -> AsyncIterator[AsyncSession]: ...
+  ```
+guarantees:
+  side_effects: Connection establishment only; each consumer uses the role listed above and application sessions do not alter the schema.
+  errors: Connection, readiness, and authentication failures fail closed as DATABASE_UNAVAILABLE or a startup configuration error; constraint violations become DATA_INTEGRITY_ERROR; SQLite and in-memory fallbacks are forbidden.
+  timeouts_retries: Connection timeout, pool wait, statement timeout, and readiness deadline must all be finite positive configured values. Migration and seed retries have a finite configured cap.
+  ordering: The migration job reaches the schema head before seed or API work that needs it. The seed job completes before a demo is considered initialized.
+  versioning: Database name, schema names, role names, secret key names, and DSN bindings are v1 deployment contracts; a breaking role or schema change requires a contract revision.
+configuration_rules:
+  - The Secret reference name is a chart value; secret values are never committed.
+  - The Secret key consumed by each container matches its environment_variable above.
+  - Python components obtain settings through the shared configuration package and never read os.environ directly.
+  - A missing DSN or denied database role is a startup/health failure, never an empty local database.
+  - Each request or tool call gets a short-lived AsyncSession; AsyncSession instances are not shared across concurrent tasks.
+open_questions:
+  - question: Which exact database Secret object names and chart values will the deployment use?
+    blocking: false
+    resolution: They remain deployment values; the contract fixes consumer-specific environment-variable and role bindings.

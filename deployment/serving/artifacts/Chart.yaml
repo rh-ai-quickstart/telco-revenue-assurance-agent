@@ -1,0 +1,6 @@
+apiVersion: v2
+name: telco-feature-artifacts
+description: Verify and atomically publish trained feature artifacts to the prediction PVC
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

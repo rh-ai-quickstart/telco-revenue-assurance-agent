@@ -1,0 +1,66 @@
+{
+  "status": "success",
+  "observed_at": "2026-10-26T23:16:06.682515+00:00",
+  "namespace": "telco-revenue-assurance-agent",
+  "connection_secret": "telco-qoe-model-storage",
+  "operations": [
+    "GetObject"
+  ],
+  "credential_values_recorded": false,
+  "objects": [
+    {
+      "key": "models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/churn.json",
+      "sha256": "1dba9f18641336ab9e1acfd4825d2533279b4527b5f82a56f7ca9aeaaffb6e3b",
+      "size_bytes": 529,
+      "verified": true
+    },
+    {
+      "key": "models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/fraud.json",
+      "sha256": "fc3fa1f51aa53c5d64e67a74dfe24022f5fb3cf34369d7eeca276334dbd9c375",
+      "size_bytes": 590,
+      "verified": true
+    },
+    {
+      "key": "models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/label_encoders.joblib",
+      "sha256": "8c6215c1e5b1e47348d41b0e3f0da391454959b01cc28cac468ebc4a09dd1437",
+      "size_bytes": 815,
+      "verified": true
+    },
+    {
+      "key": "models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/qoe.json",
+      "sha256": "c7b718c6bbba099e39bc85ebaf189a1fc5298a02e3b55c466e263c493ecd10ab",
+      "size_bytes": 463,
+      "verified": true
+    },
+    {
+      "key": "models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/scaler.joblib",
+      "sha256": "af0afda7ce3970430d4179058a1d69aa099b9100e4bb1745c709948cf7f4d3cf",
+      "size_bytes": 1159,
+      "verified": true
+    },
+    {
+      "key": "models/churn-serving/1ea4bc0e-f1c7-44af-8d80-58dc53eaa805/model.bst",
+      "size_bytes": 693607,
+      "sha256": "4cd78ee9c9429564b1f4bd22e94aef07bb6f3984785c66162aa55656519a944c",
+      "verified": true
+    },
+    {
+      "key": "models/churn-serving/1ea4bc0e-f1c7-44af-8d80-58dc53eaa805/model-settings.json",
+      "size_bytes": 449,
+      "sha256": "236788605566ff70b2b51bf31b6f877e23bef7a44290be35555eaf7851ba55d4",
+      "verified": true
+    },
+    {
+      "key": "models/fraud/1/model.onnx",
+      "size_bytes": 1091331,
+      "sha256": "7912233209886fc553e72f3b79e33f6bb79e046fd1928ed22f252942f2369f32",
+      "verified": true
+    },
+    {
+      "key": "models/starlink-qoe/1/model.onnx",
+      "size_bytes": 75234,
+      "sha256": "b4cc352342a903694278583e6bc79de22db383434125cedd208b58b0677e3009",
+      "verified": true
+    }
+  ]
+}

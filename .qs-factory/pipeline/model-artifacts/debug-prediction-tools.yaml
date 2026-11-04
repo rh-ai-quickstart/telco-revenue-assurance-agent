@@ -1,0 +1,168 @@
+resource: prediction-tools
+kind: Deployment
+namespace: telco-revenue-assurance-agent
+health_attempt_1:
+  root_cause:
+    summary: The deployment lacks its populated feature-artifact PVC. All three approved
+      model pipelines have now succeeded. Actual artifact execution using the exact
+      pinned ODH runtime wrappers proves standard output parameters, padded scalar
+      dimensions, native LightGBM probabilities and default ONNX output aliases differ
+      from current application expectations. Source churn booleans and explicit null
+      categories are also rejected despite being valid inputs used during training.
+    category: dependency
+  diagnostic_evidence:
+  - source: health-summary-after-training-root-fix.yaml
+    finding: Parent-coordinated full namespace scan after storage provisioning reports
+      70/80 expected resources healthy; remaining model/auth/feature-PVC prerequisites
+      are not ready. This debugger did not mutate cluster resources.
+  - source: training-artifact-index.json; trained-artifact-downloads.json
+    finding: Downloaded 23 actual task-output and serving files from current approved
+      successful run IDs; HEAD metadata and full GET SHA256 verified. All three serving
+      model binaries and QoE preprocessing match their pipeline outputs byte-for-byte.
+      Credentials never persisted.
+  - source: trained-artifact-metadata.json
+    finding: Churn has 14 ordered features independently matched between saved training
+      names, dataframe columns, classifier feature_name_ and native Booster names.
+      Fraud has 12 features matched between saved names, dataframe and classifier,
+      ONNX classes [0,1], and verified original Plan_Type categories [postpaid,prepaid]
+      with postpaid dropped. QoE's fitted scaler and dataframe independently agree
+      on the eight ordered feature names; real scaler and encoder sidecars are saved.
+  - source: inspect_trained_artifacts.py via artifact-inspection-venv313
+    finding: On 1000 actual churn training rows, LightGBM 4.6.0 native Booster.predict
+      returns float64 probabilities exactly matching LGBMClassifier.predict_proba[:,1].
+      Applying p>0.5 exactly matches classifier labels; casting probabilities to int
+      misclassifies all 43 positive rows in that sample. Classifier predict uses argmax([1-p,p]),
+      so a tie at 0.5 maps to the negative class.
+  - source: trained-artifact-metadata.json fraud sample_prediction
+    finding: Fraud ONNX graph input is float_input float32 [batch,12]; graph class
+      output is label int64 [batch] and probability output is probabilities float32
+      [batch,2]. ONNX labels matched the fitted classifier on all 1000 real sampled
+      rows.
+  - source: probe_trained_runtime.py; trained-runtime-probe.json
+    finding: 'Installed exact ODH MLServer core commit f8b8d3eb6a130105122c53cf03cdd41cae26e6ea
+      into an isolated inspection environment and executed its LightGBM and ONNX wrappers
+      with the trained artifacts on 100 real FP32 feature rows. Churn wire output:
+      predict FP64 [100,1]. Fraud wire output: predict INT64 [100,1]. Both include
+      parameters.content_type=np. These are local source-runtime observations, not
+      claims about a live cluster inference endpoint.'
+  - source: model-serving-preflight/odh-mlserver/mlserver/codecs/numpy.py and codecs/utils.py
+    finding: NumpyCodec.encode_output emits parameters.content_type=np and calls inject_batch_dimension,
+      which changes [N] to [N,1]. Codec SHA256 is 2d1e5a027a18fb6918ccbb105d473b182f2f55dcbf378ec6b59d08bcb045d51a.
+  - source: model-serving-preflight/odh-mlserver/runtimes/onnx/mlserver_onnx/onnx.py
+    finding: With request.outputs absent, the runtime requests alias predict, maps
+      it to the first graph output, and encodes the response using that alias. Thus
+      a manifest using graph output name label would not match this request behavior.
+  - source: original-adapter-runtime-failures.json
+    finding: Original application parser rejects both actual local runtime response
+      documents with FEATURE_SCHEMA_MISMATCH; Pydantic reports extra_forbidden at
+      outputs[0].parameters. Its subsequent shape/dtype checks also conflict with
+      the observed padded dimensions and native churn probabilities.
+  - source: trained-artifacts/churn/serving-copy/model-settings.json
+    finding: Source-generated settings advertise INT64 [batch], although the native
+      runtime emits FP64 [batch,1]. Original settings and model artifacts were preserved.
+      Deployment must supply corrected metadata separately.
+  - source: Actual churn/data-prep/x_train_file.pkl; trained-artifact-metadata.json
+      churn.escalation_flag_evidence
+    finding: EscalationFlag is bool with both False and True among 78,786 actual training
+      rows. Source transform_churn_features routes it to _finite_number, which explicitly
+      rejects Python and NumPy booleans. This is an independent source-feature adaptation
+      issue.
+  - source: trained-runtime-probe.json; inspect_qoe_artifact.py; trained-artifact-metadata.json
+    finding: The completed QoE ONNX model passes checker and exact pinned ODH OnnxModel
+      execution on 100 actual x_train rows. Input input FP32 [batch,1,8]; output predict
+      FP32 [100,1] with content_type=np. Scores 55.19541549682617 to 96.7848129272461
+      are finite/in range. Assigned run-ID model version matches response. This is
+      local runtime proof; live endpoint verification remains required.
+  - source: e2e-churn-null-category-types.json; churn-null-category-artifact-evidence.json
+    finding: Each of PrimaryIssueType and SupportChannel has 1,535 explicit nulls
+      among 27,778 live latest-customer records, no missing keys or other types. The
+      live MCP returns present keys with None for CUST0000007. Source pipeline fillna
+      empty-string mapping converts corresponding source nulls to 0.0 in 13,116 actual
+      training rows per field.
+  - source: proposed-churn-features-source-parity.json
+    finding: Staged churn preprocessing applied to verified original data at all 78,786
+      actual training row indices exactly matches all 14 x_train features, maximum
+      absolute difference 0.0.
+  proposed_fix:
+    description: 'After user approval, apply the reviewable parser/contract/test patch:
+      permit typed optional JSON V2 parameters without loosening unknown envelope
+      fields; accept [batch] and [batch,1] for scalar churn/fraud outputs while retaining
+      flat data count, model identity, version and finite/range checks; convert native
+      binary probabilities to class IDs with p>0.5 while retaining legacy INT64 behavior.
+      Use observed predict aliases in deployment manifests. Preserve source outputs
+      and prepare a separate churn-serving prefix with byte-identical model.bst plus
+      corrected FP64/[batch,1] settings. Use the actual verified QoE metadata and
+      publish/load the exact five-file feature bundle. Apply the separately reviewable
+      source-feature patch only after approval.'
+    fix_category: source-code
+    files_to_change:
+    - path: packages/prediction-tools/src/prediction_tools/kserve_client.py
+      what_to_change: Typed optional response/output parameters; supported scalar
+        shapes; validated native churn probability mapping.
+    - path: packages/prediction-tools/tests/test_kserve_v2_contract.py
+      what_to_change: Exercise thresholds/tie behavior, invalid values including huge
+        integers, runtime metadata, padded dimensions and preserved strict rejection.
+    - path: contracts/churn-inference.json
+      what_to_change: Document native FP32/FP64 probability response and legacy INT64
+        response, padded scalar shape, optional runtime metadata and classifier mapping.
+    - path: contracts/fraud-inference.json
+      what_to_change: Permit optional V2 parameters and the observed padded scalar
+        class-output shape.
+    - path: contracts/qoe-inference.json
+      what_to_change: Permit optional V2 parameters; existing score validation/shape
+        remains unchanged.
+    redeploy_needed: true
+  approval:
+    required: true
+    reason: This changes application response interpretation and frozen inference
+      contracts, outside OpenShift-only configuration.
+    patch: proposed-churn-adapter.patch
+    staged_copy: proposed-adapter/
+    application_files_modified_by_debugger: false
+    imported_source_assets_modified: false
+  proposal_validation:
+    prediction_tools_tests: 67 passed
+    ruff_check: passed
+    ruff_format: passed
+    strict_mypy: 2 modified source/test files passed with explicit workspace source
+      search paths
+    actual_local_runtime_responses: Proposed adapter accepted all three actual 100-row
+      churn, fraud and QoE responses with correct versions, values and classes.
+    runtime_response_evidence: proposed-adapter-runtime-validation.json
+  remaining_requirements:
+  - User approval before application/contract changes and updated image publication.
+  - Update frozen contract hash bookkeeping after approved contract edits.
+  - Populate feature PVC from verified artifact bundle; complete model serving deployment.
+  - Verify live runtime responses, model authorization and application E2E.
+  additional_feature_proposal:
+    patch: proposed-churn-features.patch
+    fix_category: source-code
+    approval_required: true
+    description: Convert boolean EscalationFlag only to 0.0/1.0, and explicit None
+      on present PrimaryIssueType/SupportChannel keys only to the source empty-category
+      mapping. Missing keys, null PaymentStatus, other booleans, strings for numeric
+      flags, and invalid categories remain rejected.
+    files:
+    - packages/prediction-tools/src/prediction_tools/features.py
+    - packages/prediction-tools/tests/test_churn_source_features.py
+    validation:
+      focused_tests: 27 passed
+      ruff_check: passed
+      strict_mypy: 2 files passed
+      git_apply_check: passed
+      ruff_format: passed
+      actual_training_source_parity: 78,786 rows x 14 features exactly match actual
+        x_train; maximum absolute difference 0.0
+    main_sources_modified: false
+    independent_of_runtime_patch: true
+    supersedes: proposed-churn-escalation.patch
+  artifact_preparation:
+    status: complete
+    feature_bundle_manifest: feature-bundle-manifest.json
+    feature_bundle_upload: feature-bundle-upload.json
+    readonly_get_proof: serving-artifact-read-proof.json
+    derived_churn: derived-churn-serving-upload.json
+    source_integrity: model-source-integrity-after-artifacts.json
+    local_feature_bundle_validation: passed using actual application FeatureRegistry
+      and all five byte-verified files
+    live_inference_verification: pending parent-coordinated model rollout

@@ -1,0 +1,21 @@
+{
+  "observed_at": "2026-10-26T23:31:48.054441+00:00",
+  "changed_annotation": "opendatahub.io/connection-type-protocol=s3",
+  "secrets": [
+    {
+      "name": "telco-churn-model-storage",
+      "credential_data_unchanged": true,
+      "annotation_retained": true
+    },
+    {
+      "name": "telco-fraud-model-storage",
+      "credential_data_unchanged": true,
+      "annotation_retained": true
+    },
+    {
+      "name": "telco-qoe-model-storage",
+      "credential_data_unchanged": true,
+      "annotation_retained": true
+    }
+  ]
+}

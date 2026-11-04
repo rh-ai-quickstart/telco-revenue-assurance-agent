@@ -1,0 +1,67 @@
+{{- $root := . -}}
+{{- range $entry := list
+  (dict "component" "churn-model-serving" "model" $root.Values.modelServing.churn "runtime" $root.Values.modelServing.lightgbmRuntimeName)
+  (dict "component" "fraud-model-serving" "model" $root.Values.modelServing.fraud "runtime" $root.Values.modelServing.onnxRuntimeName)
+  (dict "component" "qoe-model-serving" "model" $root.Values.modelServing.qoe "runtime" $root.Values.modelServing.qoeRuntimeName)
+-}}
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: {{ $entry.model.serviceName }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "telco.name" $root }}
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/component: {{ $entry.component }}
+    networking.knative.dev/visibility: cluster-local
+    networking.kserve.io/visibility: cluster-local
+    opendatahub.io/dashboard: "true"
+  annotations:
+    modelFormat: {{ $entry.model.modelFormat | quote }}
+    opendatahub.io/model-type: predictive
+    openshift.io/display-name: {{ $entry.model.serviceName | quote }}
+    serving.kserve.io/deploymentMode: "Standard"
+    {{- if $entry.model.uri }}
+    serving.kserve.io/storageSecretName: {{ $entry.model.storageSecretName | quote }}
+    {{- else }}
+    opendatahub.io/connections: {{ $entry.model.storageSecretName | quote }}
+    opendatahub.io/connection-path: {{ $entry.model.storagePath | quote }}
+    {{- end }}
+    security.opendatahub.io/enable-auth: "true"
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: RollingUpdate
+    maxReplicas: {{ $entry.model.maxReplicas }}
+    minReplicas: {{ $entry.model.minReplicas }}
+    serviceAccountName: {{ $entry.model.serviceAccountName | quote }}
+    timeout: {{ $entry.model.timeout }}
+    model:
+      {{- if or $entry.model.modelVersion (eq $entry.component "qoe-model-serving") (eq $entry.component "fraud-model-serving") }}
+      env:
+        {{- if $entry.model.modelVersion }}
+        - name: MLSERVER_MODEL_VERSION
+          value: {{ $entry.model.modelVersion | quote }}
+        {{- end }}
+        {{- if or (eq $entry.component "qoe-model-serving") (eq $entry.component "fraud-model-serving") }}
+        - name: MLSERVER_MODEL_URI
+          value: /mnt/models/1/model.onnx
+        {{- end }}
+      {{- end }}
+      modelFormat:
+        name: {{ $entry.model.modelFormat | quote }}
+        version: {{ $entry.model.modelFormatVersion | quote }}
+      protocolVersion: v2
+      runtime: {{ $entry.runtime | quote }}
+      {{- if $entry.model.uri }}
+      storageUri: {{ $entry.model.uri | quote }}
+      {{- else }}
+      storage:
+        key: {{ $entry.model.storageSecretName | quote }}
+        path: {{ $entry.model.storagePath | quote }}
+      {{- end }}
+      resources:
+        {{- toYaml (default $entry.model.resources $root.Values.modelServing.resources) | nindent 8 }}
+{{ end }}

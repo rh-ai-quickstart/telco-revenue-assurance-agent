@@ -1,0 +1,49 @@
+{
+  "status": "uploaded_and_full_readback_verified",
+  "model": "churn-prediction",
+  "assigned_model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+  "bucket": "mybucket",
+  "target_prefix": "models/churn-serving/1ea4bc0e-f1c7-44af-8d80-58dc53eaa805/",
+  "original_serving_prefix_preserved": "models/churn/1/",
+  "source_settings_sha256": "8db8f2a171cd1406fc3ee077f308c3fd7e40980853126944fde889403071407b",
+  "changes": {
+    "outputs[0].datatype": {
+      "from": "INT64",
+      "to": "FP64"
+    },
+    "outputs[0].shape": {
+      "from": [
+        -1
+      ],
+      "to": [
+        -1,
+        1
+      ]
+    },
+    "parameters.version": {
+      "from": null,
+      "to": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805"
+    }
+  },
+  "evidence": [
+    "trained-artifact-metadata.json",
+    "trained-runtime-probe.json"
+  ],
+  "files": [
+    {
+      "file": "model.bst",
+      "local_path": "/home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/derived-serving/churn/1ea4bc0e-f1c7-44af-8d80-58dc53eaa805/model.bst",
+      "size_bytes": 693607,
+      "sha256": "4cd78ee9c9429564b1f4bd22e94aef07bb6f3984785c66162aa55656519a944c"
+    },
+    {
+      "file": "model-settings.json",
+      "local_path": "/home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/derived-serving/churn/1ea4bc0e-f1c7-44af-8d80-58dc53eaa805/model-settings.json",
+      "size_bytes": 449,
+      "sha256": "236788605566ff70b2b51bf31b6f877e23bef7a44290be35555eaf7851ba55d4"
+    }
+  ],
+  "model_bst_byte_identical": true,
+  "runtime_response_verified_live": false,
+  "upload_evidence": "derived-churn-serving-upload.json"
+}

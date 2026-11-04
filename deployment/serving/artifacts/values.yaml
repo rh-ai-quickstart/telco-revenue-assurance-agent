@@ -1,0 +1,23 @@
+# Supply an actual verified bundle JSON using --set-file bundleManifest=/path/to/bundle.json.
+# There is intentionally no sample artifact bundle or default storage credential.
+bundleManifest: ""
+connectionSecret: ""
+
+persistence:
+  claimName: telco-model-feature-artifacts
+  storageClassName: gp3-csi
+  size: 1Gi
+
+loader:
+  image: quay.io/yelias/prediction-tools@sha256:64f3e41745b315369b8e004d01074c3fa8c87f3d93e9c7f601f8f9e71c56036f
+  dependencyImage: registry.access.redhat.com/ubi9/python-311@sha256:a0bdb55576fc5b8d6704279307817828ef027e1065533ceba133fe9516003a6c
+  activeDeadlineSeconds: 600
+  # Optional kubernetes.io/hostname selector when reusing an already attached RWO volume.
+  nodeSelector: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

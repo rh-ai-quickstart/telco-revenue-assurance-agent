@@ -1,0 +1,51 @@
+{
+  "started_at": "2026-10-26T23:15:16.221801+00:00",
+  "status": "success",
+  "namespace": "telco-revenue-assurance-agent",
+  "bucket": "mybucket",
+  "target_prefix": "models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/",
+  "credential_values_recorded": false,
+  "objects": [
+    {
+      "uri": "s3://mybucket/models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/churn.json",
+      "action": "uploaded",
+      "full_remote_readback_verified": true,
+      "size_bytes": 529,
+      "sha256": "1dba9f18641336ab9e1acfd4825d2533279b4527b5f82a56f7ca9aeaaffb6e3b",
+      "etag": "\"0239d908a5c0fa1763df467829b429b6\""
+    },
+    {
+      "uri": "s3://mybucket/models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/fraud.json",
+      "action": "uploaded",
+      "full_remote_readback_verified": true,
+      "size_bytes": 590,
+      "sha256": "fc3fa1f51aa53c5d64e67a74dfe24022f5fb3cf34369d7eeca276334dbd9c375",
+      "etag": "\"9297a62d4912bfb9887a10cade4ce2f6\""
+    },
+    {
+      "uri": "s3://mybucket/models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/label_encoders.joblib",
+      "action": "uploaded",
+      "full_remote_readback_verified": true,
+      "size_bytes": 815,
+      "sha256": "8c6215c1e5b1e47348d41b0e3f0da391454959b01cc28cac468ebc4a09dd1437",
+      "etag": "\"db4a788f9a2c296c7bebb09b80b18d59\""
+    },
+    {
+      "uri": "s3://mybucket/models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/qoe.json",
+      "action": "uploaded",
+      "full_remote_readback_verified": true,
+      "size_bytes": 463,
+      "sha256": "c7b718c6bbba099e39bc85ebaf189a1fc5298a02e3b55c466e263c493ecd10ab",
+      "etag": "\"168a7868218e9f0729853eb86a4fb374\""
+    },
+    {
+      "uri": "s3://mybucket/models/features/5a958a26803249104c583dec1b695adceab139cf8a3738419691924f4e65929b/scaler.joblib",
+      "action": "uploaded",
+      "full_remote_readback_verified": true,
+      "size_bytes": 1159,
+      "sha256": "af0afda7ce3970430d4179058a1d69aa099b9100e4bb1745c709948cf7f4d3cf",
+      "etag": "\"3fa87495b3b36e0154a9a6129d26c866\""
+    }
+  ],
+  "finished_at": "2026-10-26T23:15:22.585114+00:00"
+}

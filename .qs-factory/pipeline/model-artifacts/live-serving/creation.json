@@ -1,0 +1,29 @@
+{
+  "status": "created",
+  "observed_at": "2026-10-26T23:38:38.901627+00:00",
+  "namespace": "telco-revenue-assurance-agent",
+  "resources_sha256": "a7e54a2b3d60bc17bbdb53d155e6a8a877b21e89f6f738971e1fa311fa57973e",
+  "resources": [
+    {
+      "kind": "ConfigMap",
+      "name": "telco-model-probe-3c43ff12216a",
+      "uid": "c7e1d97e-6ae2-4060-8062-80b546c6602f",
+      "created_at": "2026-10-26T23:38:20Z",
+      "labels": {
+        "telco.redhat.com/diagnostic": "model-probe",
+        "telco.redhat.com/probe-id": "3c43ff12216a"
+      }
+    },
+    {
+      "kind": "Job",
+      "name": "telco-model-probe-3c43ff12216a",
+      "uid": "7b9d63ff-70c9-4ef8-b0f2-3ea33a91615f",
+      "created_at": "2026-10-26T23:38:20Z",
+      "labels": {
+        "telco.redhat.com/diagnostic": "model-probe",
+        "telco.redhat.com/probe-id": "3c43ff12216a"
+      }
+    }
+  ],
+  "collection_note": "oc create succeeded; its two sequential JSON output documents required separate post-create reads. No recreate or inference retry occurred."
+}

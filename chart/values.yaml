@@ -1,20 +1,470 @@
----
-# LLM configuration (optional)
-# Only needed if your quickstart requires a model.
-#
-# Option A: Bring your own model (MaaS - Model as a Service)
-# Uncomment and set these values to use an external model endpoint.
-# model:
-#   name: my-model
-#   endpoint: https://my-maas-instance:443    # full URL including protocol and port
-#   api_key: my-api-key
-#
-# Option B: Deploy a model with this chart
-# When model is not set (or empty), the chart can deploy a default model.
-# Add your own InferenceService template under templates/ for this.
-model: {}
+# Install one namespace-local quickstart stack. Storage/application Secrets must
+# already exist. Model API tokens can be issued by the service-account controller;
+# no credential values are stored in this chart.
+image:
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
 
-# -- Add your quickstart-specific values below --
-# app:
-#   replicas: 1
-#   image: quay.io/my-org/my-app:latest
+frontend:
+  replicaCount: 1
+  image: quay.io/yelias/ui
+  serviceName: frontend
+  port: 8080
+  oauthProxy:
+    image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9:v4.19
+    port: 4180
+    secretName: telco-oauth-session
+    cookieSecretKey: cookie-secret
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+  route:
+    host: ""
+    timeout: 130s
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+api:
+  replicaCount: 1
+  serviceName: api
+  port: 8000
+  image: quay.io/yelias/api
+  # Empty uses the shared image.tag; override only the API main/init images.
+  imageTag: ""
+  databaseSecretName: telco-api-db
+  databaseSecretKey: DATABASE_URL
+  startupWaitSeconds: 14400
+  ogxBaseUrl: http://ogx-ai:8321
+  # Local default is registered by the pinned OGX chart. For a remote provider,
+  # set this to remote-llm/<provider model ID> when enabling the remote model below.
+  ogxModelId: meta-llama/Llama-3.1-8B-Instruct
+  predictionMcpUrl: http://prediction-tools:8000/mcp
+  dataFetchMcpUrl: http://data-fetch-tool:8000/mcp
+  scoringBatchSize: 100
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+predictionTools:
+  replicaCount: 1
+  serviceName: prediction-tools
+  port: 8000
+  image: quay.io/yelias/prediction-tools
+  # Override the shared tag when rolling out prediction-tools independently.
+  imageTag: ""
+  dataFetchMcpUrl: http://data-fetch-tool:8000/mcp
+  modelFeatureManifestDir: /etc/telco-models
+  # Keep the volume root separate when loading atomic bundles through current/.
+  featureArtifactsMountPath: /etc/telco-models
+  # Supply a populated PVC containing churn.json, fraud.json, qoe.json,
+  # scaler.joblib, and label_encoders.joblib. These files were not included in
+  # either source checkout, so the chart deliberately does not invent them.
+  featureArtifactsClaim: telco-model-feature-artifacts
+  modelServiceCA:
+    configMapName: openshift-service-ca.crt
+    key: service-ca.crt
+  modelAuth:
+    # The controller populates these long-lived SA tokens. Set false to supply
+    # existing Secrets with an explicit renewal/restart process instead.
+    # See deployment/serving/README.md for rotation and revocation.
+    create: true
+    churn:
+      secretName: telco-churn-model-auth
+      tokenKey: token
+    fraud:
+      secretName: telco-fraud-model-auth
+      tokenKey: token
+    qoe:
+      secretName: telco-qoe-model-auth
+      tokenKey: token
+  modelUrls:
+    # Empty derives HTTPS:8443 URLs using model names and the release namespace.
+    churn: ""
+    fraud: ""
+    qoe: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+dataFetchTool:
+  replicaCount: 1
+  serviceName: data-fetch-tool
+  port: 8000
+  image: quay.io/yelias/data-fetch-tool
+  imageTag: ""
+  databaseSecretName: telco-data-readonly-db
+  databaseSecretKey: DATABASE_READONLY_URL
+  maxFetchRows: 100
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+networkPolicy:
+  enabled: true
+  # Policies restrict ingress; egress remains open for configured S3, Hugging Face,
+  # OAuth API, and optional remote-LLM endpoints.
+  # OpenShift routers label their namespace with this value by default.
+  ingressNamespaceSelector:
+    network.openshift.io/policy-group: ingress
+
+database:
+  serviceName: pgvector
+  port: 5432
+  # The bootstrap Secret is used only by PostgreSQL and the role-init Job.
+  bootstrapSecretName: telco-db-bootstrap
+  bootstrapPasswordKey: password
+  roles:
+    api:
+      secretName: telco-api-db
+      passwordKey: password
+      dsnKey: DATABASE_URL
+    dataFetch:
+      secretName: telco-data-readonly-db
+      passwordKey: password
+      dsnKey: DATABASE_READONLY_URL
+    dataGenerator:
+      secretName: telco-data-generator-db
+      passwordKey: password
+      dsnKey: DATABASE_URL
+    ogx:
+      secretName: telco-ogx-db
+      passwordKey: OGX_DB_PASSWORD
+      userKey: OGX_DB_USER
+      # Kept in this Secret for the frozen connection contract. The pinned OGX
+      # chart consumes the split user/password variables for its Postgres backends.
+      dsnKey: OGX_DATABASE_URL
+    migration:
+      secretName: telco-migration-db
+      passwordKey: password
+      dsnKey: MIGRATION_DATABASE_URL
+  storage:
+    size: 20Gi
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+migration:
+  serviceAccountName: migration
+  image: quay.io/yelias/api
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+
+dataGenerator:
+  image: quay.io/yelias/data-generator
+  databaseSecretName: telco-data-generator-db
+  databaseSecretKey: DATABASE_URL
+  generatorSeed: 42
+  regionalQoeChurnCoupling: 0.4
+  ingestBatchSize: 1000
+  backoffLimit: 2
+  activeDeadlineSeconds: 7200
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+  # Re-seeding is idempotent, but it downloads full public datasets; run only
+  # when an operator explicitly enables the upgrade hook.
+  runOnUpgrade: false
+
+modelServing:
+  # Source snapshots and unchanged training pipelines live under serving/ and pipeline/.
+  # Existing connection Secrets supply bucket/endpoint/credentials in this namespace.
+  mlserverImage: registry.redhat.io/rhoai/odh-mlserver-rhel9@sha256:ebb3fe12eb37c4fed6bce99a58e31bb6df37c4183166b8ae6e85f6c22a29b92c
+  lightgbmRuntimeName: telco-mlserver-lightgbm
+  onnxRuntimeName: telco-mlserver-onnx
+  qoeRuntimeName: telco-mlserver-qoe
+  # Optional legacy override for every model; otherwise use the per-model sizing below.
+  resources: {}
+  churn:
+    serviceName: churn-prediction
+    modelName: churn-prediction
+    # Set to an immutable artifact/run identity in deployment values, then verify
+    # the actual inference response before generating the feature manifest.
+    modelVersion: ""
+    modelFormat: lightgbm
+    modelFormatVersion: "4"
+    # An explicit URI overrides the data connection key/path below.
+    uri: ""
+    storageSecretName: telco-churn-model-storage
+    storagePath: models/churn/1
+    serviceAccountName: churn-model-serving
+    minReplicas: 1
+    maxReplicas: 1
+    timeout: 30
+    resources:
+      requests:
+        cpu: "2"
+        memory: 4Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+  fraud:
+    serviceName: fraud-prediction
+    modelName: fraud-prediction
+    modelVersion: ""
+    modelFormat: onnx
+    modelFormatVersion: "1"
+    uri: ""
+    storageSecretName: telco-fraud-model-storage
+    # Run the unchanged fraud pipeline with s3_model_key=models/fraud/1/model.onnx.
+    # Isolate it from churn's recursively discovered model-settings.json.
+    storagePath: models/fraud
+    serviceAccountName: fraud-model-serving
+    minReplicas: 1
+    maxReplicas: 1
+    timeout: 30
+    resources:
+      requests:
+        cpu: "2"
+        memory: 4Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+  qoe:
+    serviceName: starlink-qoe
+    modelName: starlink-qoe
+    modelVersion: ""
+    modelFormat: onnx
+    modelFormatVersion: "1"
+    uri: ""
+    storageSecretName: telco-qoe-model-storage
+    storagePath: models/starlink-qoe
+    serviceAccountName: qoe-model-serving
+    minReplicas: 1
+    maxReplicas: 3
+    timeout: 60
+    resources:
+      requests:
+        cpu: "1"
+        memory: 2Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+
+securityContext:
+  pod:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  container:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+ogx-ai:
+  enabled: true
+  nameOverride: ogx-ai
+  fullnameOverride: ogx-ai
+  image:
+    repository: registry.redhat.io/rhoai/odh-ogx-core-rhel9
+    tag: v3.5
+    pullPolicy: IfNotPresent
+  serviceAccount:
+    create: true
+    name: ogx-ai
+  route:
+    enabled: false
+  pgvector:
+    enabled: false
+  extraSecretRefs:
+    - name: telco-ogx-db
+  # When remote-llm is enabled, add REMOTE_LLM_API_KEY as an optional key in
+  # telco-ogx-db. The local default does not require that key.
+  models:
+    remote-llm:
+      # Set this to the non-secret REMOTE_LLM_BASE_URL from the implementation contract.
+      url: ""
+      # Single quotes are consumed by the chart's wait script and YAML parser;
+      # OGX resolves the env placeholder from telco-ogx-db at runtime.
+      apiToken: "'${env.REMOTE_LLM_API_KEY}'"
+      enabled: false
+  env:
+    - name: RUN_CONFIG_PATH
+      value: /app-config/config.yaml
+    - name: OGX_DATABASE_NAME
+      valueFrom:
+        secretKeyRef:
+          name: pgvector
+          key: dbname
+  storage:
+    backends:
+      kv_default:
+        type: kv_postgres
+        host: pgvector
+        port: 5432
+        db: "${env.OGX_DATABASE_NAME}"
+        user: "${env.OGX_DB_USER}"
+        password: "${env.OGX_DB_PASSWORD}"
+      sql_default:
+        type: sql_postgres
+        host: pgvector
+        port: 5432
+        db: "${env.OGX_DATABASE_NAME}"
+        user: "${env.OGX_DB_USER}"
+        password: "${env.OGX_DB_PASSWORD}"
+  toolRuntime:
+    braveSearch:
+      enabled: false
+    tavilySearch:
+      enabled: false
+    ragRuntime:
+      enabled: false
+    modelContextProtocol:
+      enabled: true
+  toolGroups:
+    websearch:
+      enabled: false
+    rag:
+      enabled: false
+  mcp-servers:
+    prediction-tools:
+      uri: http://prediction-tools:8000/mcp
+    data-fetch-tool:
+      uri: http://data-fetch-tool:8000/mcp
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+llm-service:
+  enabled: true
+  device: gpu
+  rawDeploymentMode: true
+  secret:
+    enabled: false
+  servingRuntime:
+    env:
+      - name: HOME
+        value: /vllm
+      - name: HF_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: telco-huggingface
+            key: HF_TOKEN
+
+pgvector:
+  enabled: true
+  nameOverride: pgvector
+  fullnameOverride: pgvector
+  image:
+    repository: docker.io/pgvector/pgvector
+    tag: pg17
+    pullPolicy: IfNotPresent
+  serviceAccount:
+    create: true
+    name: pgvector
+  secret:
+    user: postgres
+    password: ""
+    dbname: telco_revenue_assurance
+    host: pgvector
+    port: "5432"
+  env:
+    - name: POSTGRES_USER
+      value: postgres
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: telco-db-bootstrap
+          key: password
+    - name: POSTGRES_PORT
+      value: "5432"
+    - name: POSTGRES_DBNAME
+      valueFrom:
+        secretKeyRef:
+          name: pgvector
+          key: dbname
+  volumeClaimTemplates:
+    - metadata:
+        name: pg-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 20Gi
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+global:
+  models:
+    llama-3-1-8b-instruct:
+      id: meta-llama/Llama-3.1-8B-Instruct
+      enabled: true
+      device: gpu
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      storageSize: 20Gi
+      resources:
+        requests:
+          cpu: "1"
+          memory: 16Gi
+        limits:
+          cpu: "2"
+          memory: 32Gi

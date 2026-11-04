@@ -1,0 +1,1335 @@
+scan_timestamp: '2026-11-03T12:51:31+00:00'
+namespace: telco-revenue-assurance-agent
+overall_status: healthy
+scan_context: 'Fresh read-only namespace scan after the API-only rollout at 2026-11-03T12:51:31+00:00.
+  Checked all 83 expected resources: 0 missing and 0 unhealthy. All six expected Deployments
+  and the pgvector StatefulSet have 1/1 ready replicas. The rollout replaced API pod
+  api-6f79f48c6d-schdk with api-765b97f98d-dmmvd; the new pod is Running/Ready with
+  zero restarts, and the API Deployment remains 1/1 ready. All 17 running Pods are
+  Ready with zero restarts; six completed Pods are Succeeded. All four expected PVCs
+  are Bound. All seven expected Services have ready EndpointSlice addresses. The expected
+  Route is admitted, all six expected Jobs succeeded, all expected ConfigMaps, Secrets
+  (names only), ServiceAccounts, and NetworkPolicies are present, all three InferenceServices
+  are Ready=True, all three ServingRuntimes exist, and the DSPA is Ready=True. No
+  cluster query errors.'
+unhealthy_resources: []
+healthy_resources:
+- ConfigMap/churn-prediction-kube-rbac-proxy-sar-config
+- ConfigMap/churn-prediction-metrics-dashboard
+- ConfigMap/ds-pipeline-metadata-envoy-config-dspa
+- ConfigMap/ds-pipeline-server-config-dspa
+- ConfigMap/ds-pipeline-workflow-controller-dspa
+- ConfigMap/ds-pipelines-mariadb-tls-config-dspa
+- ConfigMap/dsp-trusted-ca-dspa
+- ConfigMap/fraud-prediction-kube-rbac-proxy-sar-config
+- ConfigMap/fraud-prediction-metrics-dashboard
+- ConfigMap/kfp-launcher
+- ConfigMap/kube-rbac-proxy-config-ds-pipeline-dspa
+- ConfigMap/kube-rbac-proxy-metadata-config-dspa
+- ConfigMap/kube-root-ca.crt
+- ConfigMap/metadata-grpc-configmap
+- ConfigMap/modelconfig-churn-prediction-0
+- ConfigMap/modelconfig-fraud-prediction-0
+- ConfigMap/modelconfig-starlink-qoe-0
+- ConfigMap/odh-kserve-custom-ca-bundle
+- ConfigMap/odh-trusted-ca-bundle
+- ConfigMap/openshift-service-ca.crt
+- ConfigMap/pgvector-initsql
+- ConfigMap/run-config
+- ConfigMap/sample-config-dspa
+- ConfigMap/sample-pipeline-dspa
+- ConfigMap/starlink-qoe-kube-rbac-proxy-sar-config
+- ConfigMap/starlink-qoe-metrics-dashboard
+- ConfigMap/telco-feature-artifacts-749ddc2a165e
+- ConfigMap/telco-revenue-assurance-agent-db-bootstrap
+- ConfigMap/telco-training-storage-config
+- DataSciencePipelinesApplication/dspa
+- Deployment/api
+- Deployment/churn-prediction-predictor
+- Deployment/data-fetch-tool
+- Deployment/ds-pipeline-dspa
+- Deployment/ds-pipeline-metadata-envoy-dspa
+- Deployment/ds-pipeline-metadata-grpc-dspa
+- Deployment/ds-pipeline-persistenceagent-dspa
+- Deployment/ds-pipeline-scheduledworkflow-dspa
+- Deployment/ds-pipeline-workflow-controller-dspa
+- Deployment/fraud-prediction-predictor
+- Deployment/frontend
+- Deployment/mariadb-dspa
+- Deployment/ogx-ai
+- Deployment/prediction-tools
+- Deployment/starlink-qoe-predictor
+- Deployment/telco-training-storage
+- InferenceService/churn-prediction
+- InferenceService/fraud-prediction
+- InferenceService/starlink-qoe
+- Job/telco-feature-artifacts-749ddc2a165e
+- Job/telco-revenue-assurance-agent-data-generator
+- Job/telco-revenue-assurance-agent-db-grants
+- Job/telco-revenue-assurance-agent-db-role-init
+- Job/telco-revenue-assurance-agent-migration
+- Job/telco-training-bucket-bootstrap
+- NetworkPolicy/ds-pipeline-metadata-grpc-dspa
+- NetworkPolicy/ds-pipelines-dspa
+- NetworkPolicy/ds-pipelines-envoy-dspa
+- NetworkPolicy/mariadb-dspa
+- NetworkPolicy/telco-revenue-assurance-agent-api-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-churn-prediction-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-data-fetch-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-database-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-default-deny-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-fraud-prediction-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-frontend-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-llm-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-ogx-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-prediction-tools-ingress
+- NetworkPolicy/telco-revenue-assurance-agent-starlink-qoe-ingress
+- NetworkPolicy/telco-training-storage-ingress
+- PersistentVolumeClaim/mariadb-dspa
+- PersistentVolumeClaim/ogx-ai-data
+- PersistentVolumeClaim/pg-data-pgvector-0
+- PersistentVolumeClaim/telco-model-feature-artifacts
+- PersistentVolumeClaim/telco-training-storage-data
+- Pod/api-765b97f98d-dmmvd
+- Pod/churn-prediction-predictor-6654b5dc4c-vdtkd
+- Pod/data-fetch-tool-5dc7645b4d-j26jt
+- Pod/ds-pipeline-dspa-586bb57dbf-tsvd7
+- Pod/ds-pipeline-metadata-envoy-dspa-64b87c9dc6-jg4w5
+- Pod/ds-pipeline-metadata-grpc-dspa-5d8fcbbbb9-wmvkr
+- Pod/ds-pipeline-persistenceagent-dspa-5b87cb5848-c87tg
+- Pod/ds-pipeline-scheduledworkflow-dspa-69f48f557b-v7ddt
+- Pod/ds-pipeline-workflow-controller-dspa-664bc5765b-pb6t5
+- Pod/fraud-prediction-predictor-84f7c75bc7-qzrcx
+- Pod/frontend-bd646b84f-rsp4w
+- Pod/frontend-nginx-preflight-3
+- Pod/mariadb-dspa-57f495c659-hg9p6
+- Pod/ogx-ai-656c7868f-d2l9s
+- Pod/pgvector-0
+- Pod/prediction-tools-5778cc9c89-t58d2
+- Pod/starlink-qoe-predictor-fd546db-x45q4
+- Pod/telco-revenue-assurance-agent-data-generator-plkl7
+- Pod/telco-revenue-assurance-agent-db-grants-d568q
+- Pod/telco-revenue-assurance-agent-db-role-init-dl922
+- Pod/telco-revenue-assurance-agent-migration-g6qvq
+- Pod/telco-training-bucket-bootstrap-mjzrr
+- Pod/telco-training-storage-c56d7f5bb-xck6s
+- Route/ds-pipeline-dspa
+- Route/ds-pipeline-md-dspa
+- Route/telco-revenue-assurance-agent
+- Secret/builder-dockercfg-s99xg
+- Secret/churn-model-serving-dockercfg-bth24
+- Secret/churn-prediction-predictor-serving-cert
+- Secret/dashboard-dspa-secret
+- Secret/default-dockercfg-ndzdg
+- Secret/deployer-dockercfg-sndm8
+- Secret/ds-pipeline-db-dspa
+- Secret/ds-pipeline-dspa-dockercfg-jjdbk
+- Secret/ds-pipeline-metadata-envoy-dspa-dockercfg-hvssv
+- Secret/ds-pipeline-metadata-grpc-dspa-dockercfg-j4ltt
+- Secret/ds-pipeline-metadata-grpc-tls-certs-dspa
+- Secret/ds-pipeline-metadata-grpc-tls-config-secret-dspa
+- Secret/ds-pipeline-persistenceagent-dspa-dockercfg-x5jfm
+- Secret/ds-pipeline-scheduledworkflow-dspa-dockercfg-qw9hr
+- Secret/ds-pipeline-workflow-controller-dspa-dockercfg-24gjd
+- Secret/ds-pipelines-envoy-proxy-tls-dspa
+- Secret/ds-pipelines-mariadb-sa-dspa-dockercfg-qn9hx
+- Secret/ds-pipelines-mariadb-tls-dspa
+- Secret/ds-pipelines-proxy-tls-dspa
+- Secret/fraud-model-serving-dockercfg-k7lqb
+- Secret/fraud-prediction-predictor-serving-cert
+- Secret/my-data-connection
+- Secret/ogx-ai-dockercfg-fxcfx
+- Secret/ogx-ai-env
+- Secret/pgvector
+- Secret/pgvector-dockercfg-kt8b6
+- Secret/pipeline-runner-dspa-dockercfg-xb6ph
+- Secret/qoe-model-serving-dockercfg-4wrhd
+- Secret/sh.helm.release.v1.telco-feature-artifacts.v1
+- Secret/sh.helm.release.v1.telco-revenue-assurance-agent.v1
+- Secret/sh.helm.release.v1.telco-revenue-assurance-agent.v2
+- Secret/sh.helm.release.v1.telco-revenue-assurance-agent.v3
+- Secret/sh.helm.release.v1.telco-revenue-assurance-agent.v4
+- Secret/sh.helm.release.v1.telco-revenue-assurance-agent.v5
+- Secret/sh.helm.release.v1.telco-revenue-assurance-agent.v6
+- Secret/sh.helm.release.v1.telco-training.v1
+- Secret/starlink-qoe-predictor-serving-cert
+- Secret/storage-config
+- Secret/telco-api-db
+- Secret/telco-churn-model-auth
+- Secret/telco-churn-model-storage
+- Secret/telco-data-generator-db
+- Secret/telco-data-readonly-db
+- Secret/telco-db-bootstrap
+- Secret/telco-fraud-model-auth
+- Secret/telco-fraud-model-storage
+- Secret/telco-migration-db
+- Secret/telco-oauth-session
+- Secret/telco-ogx-db
+- Secret/telco-qoe-model-auth
+- Secret/telco-qoe-model-storage
+- Secret/telco-remote-llm
+- Secret/telco-revenue-assurance-agent-api-dockercfg-n28b6
+- Secret/telco-revenue-assurance-agent-data-fetch-tool-dockercfg-fm662
+- Secret/telco-revenue-assurance-agent-data-generator-dockercfg-wztkz
+- Secret/telco-revenue-assurance-agent-db-grants-dockercfg-9t2gd
+- Secret/telco-revenue-assurance-agent-db-role-init-dockercfg-wvv68
+- Secret/telco-revenue-assurance-agent-migration-dockercfg-vxr7c
+- Secret/telco-revenue-assurance-agent-oauth-proxy-dockercfg-zg892
+- Secret/telco-revenue-assurance-agent-oauth-proxy-token
+- Secret/telco-revenue-assurance-agent-prediction-tools-dockercfg-swq9s
+- Secret/telco-training-s3
+- Secret/telco-training-storage-dockercfg-crmsg
+- Service/api
+- Service/churn-prediction-metrics
+- Service/churn-prediction-predictor
+- Service/data-fetch-tool
+- Service/ds-pipeline-dspa
+- Service/ds-pipeline-md-dspa
+- Service/ds-pipeline-metadata-grpc-dspa
+- Service/ds-pipeline-workflow-controller-metrics-dspa
+- Service/fraud-prediction-metrics
+- Service/fraud-prediction-predictor
+- Service/frontend
+- Service/mariadb-dspa
+- Service/metadata-grpc-service
+- Service/ml-pipeline
+- Service/ogx-ai
+- Service/pgvector
+- Service/prediction-tools
+- Service/starlink-qoe-metrics
+- Service/starlink-qoe-predictor
+- Service/telco-training-storage
+- ServiceAccount/builder
+- ServiceAccount/churn-model-serving
+- ServiceAccount/default
+- ServiceAccount/deployer
+- ServiceAccount/ds-pipeline-dspa
+- ServiceAccount/ds-pipeline-metadata-envoy-dspa
+- ServiceAccount/ds-pipeline-metadata-grpc-dspa
+- ServiceAccount/ds-pipeline-persistenceagent-dspa
+- ServiceAccount/ds-pipeline-scheduledworkflow-dspa
+- ServiceAccount/ds-pipeline-workflow-controller-dspa
+- ServiceAccount/ds-pipelines-mariadb-sa-dspa
+- ServiceAccount/fraud-model-serving
+- ServiceAccount/ogx-ai
+- ServiceAccount/pgvector
+- ServiceAccount/pipeline-runner-dspa
+- ServiceAccount/qoe-model-serving
+- ServiceAccount/telco-revenue-assurance-agent-api
+- ServiceAccount/telco-revenue-assurance-agent-data-fetch-tool
+- ServiceAccount/telco-revenue-assurance-agent-data-generator
+- ServiceAccount/telco-revenue-assurance-agent-db-grants
+- ServiceAccount/telco-revenue-assurance-agent-db-role-init
+- ServiceAccount/telco-revenue-assurance-agent-migration
+- ServiceAccount/telco-revenue-assurance-agent-oauth-proxy
+- ServiceAccount/telco-revenue-assurance-agent-prediction-tools
+- ServiceAccount/telco-training-storage
+- ServingRuntime/telco-mlserver-lightgbm
+- ServingRuntime/telco-mlserver-onnx
+- ServingRuntime/telco-mlserver-qoe
+- StatefulSet/pgvector
+resources:
+- name: churn-prediction-kube-rbac-proxy-sar-config
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: churn-prediction-metrics-dashboard
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-metadata-envoy-config-dspa
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-server-config-dspa
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-workflow-controller-dspa
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipelines-mariadb-tls-config-dspa
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: dsp-trusted-ca-dspa
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: fraud-prediction-kube-rbac-proxy-sar-config
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: fraud-prediction-metrics-dashboard
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: kfp-launcher
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: kube-rbac-proxy-config-ds-pipeline-dspa
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: kube-rbac-proxy-metadata-config-dspa
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: kube-root-ca.crt
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: metadata-grpc-configmap
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: modelconfig-churn-prediction-0
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: modelconfig-fraud-prediction-0
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: modelconfig-starlink-qoe-0
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: odh-kserve-custom-ca-bundle
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: odh-trusted-ca-bundle
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: openshift-service-ca.crt
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: pgvector-initsql
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: run-config
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 1
+- name: sample-config-dspa
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: sample-pipeline-dspa
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: starlink-qoe-kube-rbac-proxy-sar-config
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: starlink-qoe-metrics-dashboard
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-feature-artifacts-749ddc2a165e
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-db-bootstrap
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-training-storage-config
+  kind: ConfigMap
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: dspa
+  kind: DataSciencePipelinesApplication
+  status: healthy
+  details: 'Ready=True; all components report ready. False conditions are NotApplicable:
+    WebhookReady, ManagedPipelineValid.'
+  debug_attempts: 0
+- name: api
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 3
+- name: churn-prediction-predictor
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: data-fetch-tool
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 1
+- name: ds-pipeline-dspa
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: ds-pipeline-metadata-envoy-dspa
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: ds-pipeline-metadata-grpc-dspa
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: ds-pipeline-persistenceagent-dspa
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: ds-pipeline-scheduledworkflow-dspa
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: ds-pipeline-workflow-controller-dspa
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: fraud-prediction-predictor
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: frontend
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 3
+- name: mariadb-dspa
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: ogx-ai
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 1
+- name: prediction-tools
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 1
+- name: starlink-qoe-predictor
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: telco-training-storage
+  kind: Deployment
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+- name: churn-prediction
+  kind: InferenceService
+  status: healthy
+  details: 'Ready=True. Conditions: LatestDeploymentReady=False (AuthProxyPreserved).'
+  debug_attempts: 2
+- name: fraud-prediction
+  kind: InferenceService
+  status: healthy
+  details: 'Ready=True. Conditions: LatestDeploymentReady=False (AuthProxyPreserved).'
+  debug_attempts: 2
+- name: starlink-qoe
+  kind: InferenceService
+  status: healthy
+  details: 'Ready=True. Conditions: LatestDeploymentReady=False (AuthProxyPreserved).'
+  debug_attempts: 2
+- name: telco-feature-artifacts-749ddc2a165e
+  kind: Job
+  status: healthy
+  details: 1 succeeded, 0 failed, 0 active.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-data-generator
+  kind: Job
+  status: healthy
+  details: 1 succeeded, 0 failed, 0 active.
+  debug_attempts: 1
+- name: telco-revenue-assurance-agent-db-grants
+  kind: Job
+  status: healthy
+  details: 1 succeeded, 0 failed, 0 active.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-db-role-init
+  kind: Job
+  status: healthy
+  details: 1 succeeded, 0 failed, 0 active.
+  debug_attempts: 1
+- name: telco-revenue-assurance-agent-migration
+  kind: Job
+  status: healthy
+  details: 1 succeeded, 0 failed, 0 active.
+  debug_attempts: 1
+- name: telco-training-bucket-bootstrap
+  kind: Job
+  status: healthy
+  details: 1 succeeded, 0 failed, 0 active.
+  debug_attempts: 0
+- name: ds-pipeline-metadata-grpc-dspa
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipelines-dspa
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipelines-envoy-dspa
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: mariadb-dspa
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-api-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-churn-prediction-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-data-fetch-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-database-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-default-deny-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-fraud-prediction-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-frontend-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-llm-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-ogx-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-prediction-tools-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-starlink-qoe-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-training-storage-ingress
+  kind: NetworkPolicy
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: mariadb-dspa
+  kind: PersistentVolumeClaim
+  status: healthy
+  details: Claim phase Bound; storage class gp3-csi.
+  debug_attempts: 0
+- name: ogx-ai-data
+  kind: PersistentVolumeClaim
+  status: healthy
+  details: Claim phase Bound; storage class gp3-csi.
+  debug_attempts: 0
+- name: pg-data-pgvector-0
+  kind: PersistentVolumeClaim
+  status: healthy
+  details: Claim phase Bound; storage class gp3-csi.
+  debug_attempts: 0
+- name: telco-model-feature-artifacts
+  kind: PersistentVolumeClaim
+  status: healthy
+  details: Claim phase Bound; storage class gp3-csi.
+  debug_attempts: 0
+- name: telco-training-storage-data
+  kind: PersistentVolumeClaim
+  status: healthy
+  details: Claim phase Bound; storage class gp3-csi.
+  debug_attempts: 0
+- name: api-765b97f98d-dmmvd
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready; 0 restarts.
+  pod_status: Running
+  debug_attempts: 0
+- name: churn-prediction-predictor-6654b5dc4c-vdtkd
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+  debug_attempts: 0
+- name: data-fetch-tool-5dc7645b4d-j26jt
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: ds-pipeline-dspa-586bb57dbf-tsvd7
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: ds-pipeline-metadata-envoy-dspa-64b87c9dc6-jg4w5
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: ds-pipeline-metadata-grpc-dspa-5d8fcbbbb9-wmvkr
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: ds-pipeline-persistenceagent-dspa-5b87cb5848-c87tg
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: ds-pipeline-scheduledworkflow-dspa-69f48f557b-v7ddt
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: ds-pipeline-workflow-controller-dspa-664bc5765b-pb6t5
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: fraud-prediction-predictor-84f7c75bc7-qzrcx
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+  debug_attempts: 0
+- name: frontend-bd646b84f-rsp4w
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: frontend-nginx-preflight-3
+  kind: Pod
+  status: healthy
+  details: Completed successfully.
+  pod_status: Succeeded
+  debug_attempts: 0
+- name: mariadb-dspa-57f495c659-hg9p6
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: ogx-ai-656c7868f-d2l9s
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: pgvector-0
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+  debug_attempts: 0
+- name: prediction-tools-5778cc9c89-t58d2
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+- name: starlink-qoe-predictor-fd546db-x45q4
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-data-generator-plkl7
+  kind: Pod
+  status: healthy
+  details: Completed successfully.
+  pod_status: Succeeded
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-db-grants-d568q
+  kind: Pod
+  status: healthy
+  details: Completed successfully.
+  pod_status: Succeeded
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-db-role-init-dl922
+  kind: Pod
+  status: healthy
+  details: Completed successfully.
+  pod_status: Succeeded
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-migration-g6qvq
+  kind: Pod
+  status: healthy
+  details: Completed successfully.
+  pod_status: Succeeded
+  debug_attempts: 0
+- name: telco-training-bucket-bootstrap-mjzrr
+  kind: Pod
+  status: healthy
+  details: Completed successfully.
+  pod_status: Succeeded
+  debug_attempts: 0
+- name: telco-training-storage-c56d7f5bb-xck6s
+  kind: Pod
+  status: healthy
+  details: Running; all containers Ready.
+  pod_status: Running
+  debug_attempts: 0
+- name: ds-pipeline-dspa
+  kind: Route
+  status: healthy
+  details: Route is admitted.
+  debug_attempts: 0
+- name: ds-pipeline-md-dspa
+  kind: Route
+  status: healthy
+  details: Route is admitted.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent
+  kind: Route
+  status: healthy
+  details: Route is admitted.
+  debug_attempts: 0
+- name: builder-dockercfg-s99xg
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: churn-model-serving-dockercfg-bth24
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: churn-prediction-predictor-serving-cert
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: dashboard-dspa-secret
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: default-dockercfg-ndzdg
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: deployer-dockercfg-sndm8
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-db-dspa
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-dspa-dockercfg-jjdbk
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-metadata-envoy-dspa-dockercfg-hvssv
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-metadata-grpc-dspa-dockercfg-j4ltt
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-metadata-grpc-tls-certs-dspa
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-metadata-grpc-tls-config-secret-dspa
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-persistenceagent-dspa-dockercfg-x5jfm
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-scheduledworkflow-dspa-dockercfg-qw9hr
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-workflow-controller-dspa-dockercfg-24gjd
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipelines-envoy-proxy-tls-dspa
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipelines-mariadb-sa-dspa-dockercfg-qn9hx
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipelines-mariadb-tls-dspa
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipelines-proxy-tls-dspa
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: fraud-model-serving-dockercfg-k7lqb
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: fraud-prediction-predictor-serving-cert
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: my-data-connection
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ogx-ai-dockercfg-fxcfx
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ogx-ai-env
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: pgvector
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: pgvector-dockercfg-kt8b6
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: pipeline-runner-dspa-dockercfg-xb6ph
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: qoe-model-serving-dockercfg-4wrhd
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: sh.helm.release.v1.telco-feature-artifacts.v1
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: sh.helm.release.v1.telco-revenue-assurance-agent.v1
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: sh.helm.release.v1.telco-revenue-assurance-agent.v2
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: sh.helm.release.v1.telco-revenue-assurance-agent.v3
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: sh.helm.release.v1.telco-revenue-assurance-agent.v4
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+- name: sh.helm.release.v1.telco-revenue-assurance-agent.v5
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+- name: sh.helm.release.v1.telco-revenue-assurance-agent.v6
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+- name: sh.helm.release.v1.telco-training.v1
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: starlink-qoe-predictor-serving-cert
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: storage-config
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-api-db
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-churn-model-auth
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-churn-model-storage
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-data-generator-db
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-data-readonly-db
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-db-bootstrap
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 1
+- name: telco-fraud-model-auth
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-fraud-model-storage
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-migration-db
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-oauth-session
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-ogx-db
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-qoe-model-auth
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-qoe-model-storage
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-remote-llm
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-api-dockercfg-n28b6
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-data-fetch-tool-dockercfg-fm662
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-data-generator-dockercfg-wztkz
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-db-grants-dockercfg-9t2gd
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-db-role-init-dockercfg-wvv68
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-migration-dockercfg-vxr7c
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-oauth-proxy-dockercfg-zg892
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-oauth-proxy-token
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+- name: telco-revenue-assurance-agent-prediction-tools-dockercfg-swq9s
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-training-s3
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-training-storage-dockercfg-crmsg
+  kind: Secret
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: api
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: churn-prediction-metrics
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: churn-prediction-predictor
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: data-fetch-tool
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: ds-pipeline-dspa
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: ds-pipeline-md-dspa
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: ds-pipeline-metadata-grpc-dspa
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: ds-pipeline-workflow-controller-metrics-dspa
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: fraud-prediction-metrics
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: fraud-prediction-predictor
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: frontend
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: mariadb-dspa
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: metadata-grpc-service
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: ml-pipeline
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: ogx-ai
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: pgvector
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: prediction-tools
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: starlink-qoe-metrics
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: starlink-qoe-predictor
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: telco-training-storage
+  kind: Service
+  status: healthy
+  details: 1 ready endpoint address(es); 0 not-ready address(es).
+  debug_attempts: 0
+- name: builder
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: churn-model-serving
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: default
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: deployer
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-dspa
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-metadata-envoy-dspa
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-metadata-grpc-dspa
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-persistenceagent-dspa
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-scheduledworkflow-dspa
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipeline-workflow-controller-dspa
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ds-pipelines-mariadb-sa-dspa
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: fraud-model-serving
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: ogx-ai
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: pgvector
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: pipeline-runner-dspa
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: qoe-model-serving
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-api
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-data-fetch-tool
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-data-generator
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-db-grants
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 1
+- name: telco-revenue-assurance-agent-db-role-init
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-migration
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-oauth-proxy
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-revenue-assurance-agent-prediction-tools
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-training-storage
+  kind: ServiceAccount
+  status: healthy
+  details: Resource exists; values/configuration were not read.
+  debug_attempts: 0
+- name: telco-mlserver-lightgbm
+  kind: ServingRuntime
+  status: healthy
+  details: ServingRuntime object exists.
+  debug_attempts: 0
+- name: telco-mlserver-onnx
+  kind: ServingRuntime
+  status: healthy
+  details: ServingRuntime object exists.
+  debug_attempts: 0
+- name: telco-mlserver-qoe
+  kind: ServingRuntime
+  status: healthy
+  details: ServingRuntime object exists.
+  debug_attempts: 0
+- name: pgvector
+  kind: StatefulSet
+  status: healthy
+  details: 1/1 replicas ready; 1/1 available.
+  pod_status: 1/1 ready
+  debug_attempts: 0
+missing_resources: []
+changes_since_last_scan:
+- resource: Deployment/api
+  previous_status: healthy
+  current_status: healthy
+  note: The API-only rollout replaced pod api-6f79f48c6d-schdk with api-765b97f98d-dmmvd;
+    the new pod is Running/Ready with zero restarts, and the Deployment remains 1/1
+    ready.

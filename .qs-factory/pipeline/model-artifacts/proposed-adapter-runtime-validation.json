@@ -1,0 +1,27 @@
+{
+  "churn": {
+    "status": "PASS",
+    "rows": 100,
+    "unique_classes": [
+      0,
+      1
+    ],
+    "model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805"
+  },
+  "fraud": {
+    "status": "PASS",
+    "rows": 100,
+    "unique_classes": [
+      0,
+      1
+    ],
+    "model_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7"
+  },
+  "qoe": {
+    "status": "PASS",
+    "rows": 100,
+    "model_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+    "minimum_score": 55.19541549682617,
+    "maximum_score": 96.7848129272461
+  }
+}

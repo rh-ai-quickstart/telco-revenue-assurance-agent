@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.dataFetchTool.serviceName }}
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "data-fetch-tool") | nindent 4 }}
+spec:
+  replicas: {{ .Values.dataFetchTool.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "telco.componentSelector" (dict "root" . "component" "data-fetch-tool") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "telco.componentSelector" (dict "root" . "component" "data-fetch-tool") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "telco.serviceAccount" (dict "root" . "suffix" "data-fetch-tool") }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.securityContext.pod | nindent 8 }}
+      containers:
+        - name: data-fetch-tool
+          image: {{ printf "%s:%s" .Values.dataFetchTool.image (.Values.dataFetchTool.imageTag | default .Values.image.tag) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "data_fetch_tool.main"]
+          env:
+            - name: DATABASE_READONLY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataFetchTool.databaseSecretName }}
+                  key: {{ .Values.dataFetchTool.databaseSecretKey }}
+            - name: MCP_HOST
+              value: 0.0.0.0
+            - name: MCP_PORT
+              value: {{ .Values.dataFetchTool.port | quote }}
+            - name: MAX_FETCH_ROWS
+              value: {{ .Values.dataFetchTool.maxFetchRows | quote }}
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: HOME
+              value: /tmp
+            - name: TMPDIR
+              value: /tmp
+          ports:
+            - name: http
+              containerPort: {{ .Values.dataFetchTool.port }}
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.dataFetchTool.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}

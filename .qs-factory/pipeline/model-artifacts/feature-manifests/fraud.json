@@ -1,0 +1,29 @@
+{
+  "model_name": "fraud-prediction",
+  "model_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7",
+  "input_tensor_name": "float_input",
+  "output_tensor_name": "predict",
+  "feature_order": [
+    "Call_Duration",
+    "Data_Usage",
+    "Sms_Count",
+    "Roaming_Indicator",
+    "MobileWallet_Use",
+    "Cost",
+    "Cellular_Location_Distance",
+    "Personal_Pin_Used",
+    "Avg_Call_Duration",
+    "Avg_Data_Usage",
+    "Avg_Cost",
+    "Plan_Type_prepaid"
+  ],
+  "feature_width": 12,
+  "plan_type_categories": [
+    "postpaid",
+    "prepaid"
+  ],
+  "class_order": [
+    false,
+    true
+  ]
+}

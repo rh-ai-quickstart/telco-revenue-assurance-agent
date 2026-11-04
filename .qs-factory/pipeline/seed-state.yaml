@@ -1,0 +1,46 @@
+operation_id: 92bf14b5-6017-4414-b31d-0fd7b139fc82
+namespace: telco-revenue-assurance-agent
+job: telco-revenue-assurance-agent-data-generator
+created_at: '2026-10-25T14:11:56.220680+00:00'
+phase: complete
+create_attempt_limit: 1
+create_request_may_have_been_issued: true
+manifest_sha256: efb907e14d0900fa8a59d7557a8a50df144818dbbb9f2b131989106b8bd1b129
+selection_sha256: 3b2ddab9bfd7cc4e41ed39abbee47f199991a98feaab1eaff71b16524de90460
+source_sha256:
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/templates/data-generator-job.yaml
+  : eb1fa1ff4fee8e56390ac2133a9174dcad667a6fedb9d02976a20ba89f5ae9f5
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/templates/data-fetch-tool-deployment.yaml
+  : e3ead6e4517037628e9581702df2e2bc4dc789540d2a304e798d427e24004d91
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/templates/api-deployment.yaml
+  : d9714eb08ca4ee4477a0c722ada36de33eff2b6b0d929331443d66b242f95b66
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/templates/prediction-tools-deployment.yaml
+  : af4020fe582fdbb88f9bb3a830b23ebb7f60977f8f6866832716186559eefb75
+  /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/templates/_helpers.tpl: faf801bef52e0cf2c794d4d034c9961f299f80b297ef24a6770c65fa784c2143
+  /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/Chart.yaml: a735174abc2bac607a0ecccccc4678553652d3b2618ae24f977aad0e0f65ed3c
+  /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/Chart.lock: b12436285ec46442a7c9dae198df50651f7377b3c128cfcdc0db656f812556a6
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/templates/database-role-init-configmap.yaml
+  : 1d7d44de8d2f98c23d2c9539a8c2b451ea048bbfe71b0e01677c93aeae4d88a6
+  /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/packages/api/alembic/env.py: 14d760e87a13c9be06bb4cb5ef7432fc6e7db483b66e7c0c9438c77d0dc84074
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/packages/api/alembic/versions/0001_initial_schema.py
+  : 2822a5d4ed37b4c2aec40ca8fbd0f9af9cc84e827496fb33c9dc9f6ecb17afc7
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/packages/data-generator/src/data_generator/main.py
+  : d4e5fee0f1c47dda5aa8b870a8b9ed9e7e2cba6a055f5f3c2d16be17550cd0d0
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/packages/data-generator/src/data_generator/datasets.py
+  : cc0414bb56948f38ef0515e20a72cce48897b33a08cee67e588af18c3cf35750
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/packages/data-generator/src/data_generator/writer.py
+  : 823cb844056965597b65e03089996065c2ffbd52979cde7c4991968066558e5b
+  /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/values.yaml: fb04b3427eb8a6aa6680fd6c13a5e30b691aae455a8af6176b0fc082641e1237
+  /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/values-quay-yelias.yaml: 78b238020e0d05b5e4a74802e9e0b0bd7fe94c3d3aa39b112c4c0950c4faeb69
+  ? /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/charts/llm-service-0.1.0.tgz
+  : fdf73b5e2b601d112bad5c46df223b1e77bd896656125b633e53fb4b825c2670
+  /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/charts/ogx-ai-0.8.6.tgz: 9a55ee8fce19fb31d05d7df1940d84acf7a05872c39b068fb7bb89bcfc4446eb
+  /home/yelias/Desktop/Projects/quickstart-factory/.rhoai-qs/telco-revenue-assurance-agent/chart/charts/pgvector-0.1.0.tgz: 8cf044a412088bb2864e359e01d61dcc003e1d015104a45dccf341f3f83fe1d8
+preflight_evidence: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/seed-health-attempt-1/preflight-20261025T141156167374Z.json
+job_uid: dbe2e6b6-8141-4673-92c1-bcc602f62e99
+updated_at: '2026-10-25T15:06:34.612339+00:00'
+source_nonempty:
+  customers: true
+  billing_cycles: true
+  transactions: true
+  qoe_samples: true

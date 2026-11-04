@@ -1,0 +1,22 @@
+{
+  "name": "telco-revenue-assurance-agent",
+  "private": true,
+  "packageManager": "pnpm@10.6.5",
+  "scripts": {
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format:check": "prettier --config packages/configs/prettier.json --check package.json pnpm-workspace.yaml turbo.json \"packages/**/*.{ts,tsx,js,jsx,json,yml,yaml,md}\""
+  },
+  "devDependencies": {
+    "@eslint/js": "9.17.0",
+    "eslint": "9.17.0",
+    "eslint-plugin-react-hooks": "5.1.0",
+    "eslint-plugin-react-refresh": "0.4.16",
+    "globals": "15.14.0",
+    "prettier": "3.4.2",
+    "turbo": "2.3.3",
+    "typescript": "5.7.2",
+    "typescript-eslint": "8.18.2"
+  }
+}

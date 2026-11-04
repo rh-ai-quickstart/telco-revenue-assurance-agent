@@ -1,0 +1,145 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.frontend.serviceName }}
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "telco.componentSelector" (dict "root" . "component" "frontend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "telco.componentSelector" (dict "root" . "component" "frontend") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "telco.serviceAccount" (dict "root" . "suffix" "oauth-proxy") }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.securityContext.pod | nindent 8 }}
+      containers:
+        - name: nginx
+          image: {{ printf "%s:%s" .Values.frontend.image .Values.image.tag | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["nginx"]
+          args: ["-e", "/dev/stderr", "-g", "daemon off;"]
+          ports:
+            - name: nginx
+              containerPort: {{ .Values.frontend.port }}
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: nginx
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: nginx
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: nginx
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+        - name: oauth-proxy
+          image: {{ .Values.frontend.oauthProxy.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --provider=openshift
+            - --openshift-service-account={{ include "telco.serviceAccount" (dict "root" . "suffix" "oauth-proxy") }}
+            - --http-address=0.0.0.0:{{ .Values.frontend.oauthProxy.port }}
+            - --https-address=
+            - --upstream=http://127.0.0.1:{{ .Values.frontend.port }}/
+            - --cookie-secret-file=/var/run/secrets/oauth-proxy/cookie-secret
+            - --email-domain=*
+            - --pass-user-headers=true
+            - --pass-access-token=false
+            - --pass-user-bearer-token=false
+            - --pass-basic-auth=false
+            - --cookie-secure=true
+            - --upstream-timeout=125s
+            - --proxy-websockets=false
+          ports:
+            - name: oauth-proxy
+              containerPort: {{ .Values.frontend.oauthProxy.port }}
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /oauth/healthz
+              port: oauth-proxy
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /oauth/healthz
+              port: oauth-proxy
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /oauth/healthz
+              port: oauth-proxy
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: oauth-cookie-secret
+              mountPath: /var/run/secrets/oauth-proxy
+              readOnly: true
+            - name: oauth-service-account
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.frontend.oauthProxy.resources | nindent 12 }}
+      volumes:
+        - name: oauth-cookie-secret
+          secret:
+            secretName: {{ .Values.frontend.oauthProxy.secretName }}
+            defaultMode: 0444
+            items:
+              - key: {{ .Values.frontend.oauthProxy.cookieSecretKey }}
+                path: cookie-secret
+        - name: oauth-service-account
+          projected:
+            sources:
+              - secret:
+                  name: {{ include "telco.oauthProxyTokenSecret" . }}
+                  items:
+                    - key: token
+                      path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
+        - name: tmp
+          emptyDir: {}

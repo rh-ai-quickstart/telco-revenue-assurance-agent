@@ -1,0 +1,1691 @@
+spec_version: 1
+quickstart_name: 'Telco Revenue Assurance Agent: Quality, Churn & Fraud Insights'
+slug: telco-revenue-assurance-agent
+skill: rh-qs-implement
+created_at: '2026-10-20T21:24:48Z'
+inputs:
+- path: .qs-factory/designs/architecture-spec.yaml
+  content_hash: sha256:8525961ea096aafbe9f01beee6bb608fdeccf024f7b5e26fea2eed0d7b728148
+- path: .qs-factory/designs/architecture-diagram.mmd
+  content_hash: sha256:768e680a873197ac633fe35309f28361ebfdf48401c1c2bc2b979fd0d72fc9fb
+scope:
+  in_scope:
+  - 'Five application packages: packages/ui, packages/api, packages/prediction-tools, packages/data-fetch-tool,
+    and packages/data-generator.'
+  - Frozen REST, MCP, database, and KServe V2 contracts under contracts/.
+  - Unit and contract tests for the application packages.
+  - The Helm surface for ai-architecture-charts dependencies, application workloads, migration/seed Jobs, and KServe
+    InferenceServices.
+  - Resume model integration by copying the supplied pipelines and serving snapshots byte-for-byte, preserving their
+    tested behavior in Helm, and adapting prediction response handling to their outputs.
+  out_of_scope:
+  - .github/workflows/** — owned by rh-qs-test-suite.
+  - README.md and docs/** — owned by rh-qs-document.
+  - Any oc or kubectl invocation — forbidden by rh-qs-secure; use Helm/Makefile targets only.
+  - Cluster deployment and verification — owned by rh-qs-deploy and rh-qs-verify-deploy.
+  - compose.yml or local runtime — technology_stack.local_runtime says not required.
+  - Model retraining and storing model binaries/credentials in Git — outside this implementation.
+  open_questions:
+  - id: oq-database-schema
+    question: Approve the proposed normalized v1 relational schema and its table grain.
+    blocking: false
+    resolved_as: 'User approved the provisional six-table v1 domain proposal on 2026-10-21: customers; billing_cycles
+      (one row per churn source cycle); transactions (one row per RAFM source row); qoe_samples (one row per Starlink
+      source sample); scoring_runs; predictions, with typed query/model fields and lossless JSONB source features.
+      User separately approved app.chat_requests on 2026-10-21 for durable API chat idempotency, storing session/request
+      IDs, a message hash, and the completed public response. Its rejected state preserves request-ID binding after
+      an explicit upstream rejection so changed content still conflicts. Final source identifiers, column types,
+      key rules, QoE cardinality, nullability, and currency semantics remain deferred until the source database
+      schema is ready.'
+  - id: oq-model-artifact-inputs
+    question: Where will the KServe model artifacts and QoE preprocessing sidecars be stored?
+    blocking: false
+    resolved_as: Treat external S3-compatible artifact URIs, per-model KServe bearer-token Secret references, and
+      preprocessing sidecars as deployment inputs; actual credentials and binaries remain outside Git.
+  - id: oq-source-serving-checkout
+    question: How should the supplied serving checkout be treated while it remains separate on disk?
+    blocking: false
+    resolved_as: 'User directed that it is one future repo; use its serving manifests and preprocessing pipelines
+      as the source of truth and bring equivalent definitions into this quickstart during implementation. Reviewed
+      source ref: 3037c340c5a4a27ae53f95b9146562c12c985c79.'
+conventions:
+  python: Use async SQLAlchemy 2 sessions and typed public functions. Settings come from packages/common; never
+    read os.environ directly. Use versioned migrations.
+  typescript: No any. Generate API types from contracts/openapi.yaml. Route data fetching through TanStack Query
+    hooks and typed service functions.
+  errors: Use shared typed error envelopes. MCP and KServe failures are mapped to bounded structured errors; never
+    return raw SQL or provider internals.
+  config: Every configurable value is declared in the work unit env_vars or chart values. Model features and tensor
+    shapes are validated before inference.
+  secrets: Secret values never enter source or values.yaml. Use OpenShift Secret references and least-privilege
+    per-workload identities.
+  forbidden_strings:
+  - ai-quickstart-template
+  - my-quickstart
+  - CONTRIBUTOR_NAME
+  - localhost
+  - TODO
+contracts:
+- id: frontend-api
+  kind: openapi
+  path: contracts/openapi.yaml
+  content_hash: sha256:da4d5cf1ed1b3b670fdf9917a0138ebd3ffde723b1c843bb143233b3edb23dfa
+  owner: backend
+  consumers:
+  - frontend
+  guarantees:
+    side_effects: GET metrics and status reads are side-effect free. POST scoring-run creation uses an idempotency
+      key; POST chat creates or continues only the specified session and persists request hashes and completed responses
+      for replay.
+    errors: 400 VALIDATION_ERROR, 401/403 AUTHENTICATION_OR_AUTHORIZATION, 404 NOT_FOUND, 409 RUN_ALREADY_ACTIVE
+      or IDEMPOTENCY_CONFLICT, 503 UPSTREAM_UNAVAILABLE; all use the shared error envelope.
+    timeouts_retries: Scoring creation returns 202 promptly; chat and metrics use bounded upstream timeouts. Retry
+      503 at most twice with exponential backoff; never retry 4xx.
+    ordering: Scoring runs are independently identified and their persisted status/progress is monotonic. Chat requests
+      are serialized per session; matching request IDs and message hashes replay the stored response, while changed
+      content returns IDEMPOTENCY_CONFLICT. GET responses have no ordering guarantee.
+    versioning: Path prefix /api/v1; breaking changes require a new prefix.
+  verification:
+    provider: uv run pytest packages/api/tests/test_openapi_contract.py -q
+    consumer: pnpm --filter ui run generate:types && pnpm --filter ui run typecheck
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+- id: ogx-responses
+  kind: openapi
+  path: contracts/ogx-responses.yaml
+  content_hash: sha256:b0b23eeede26b786cd10cdb7469490421bf0376a142bdfa2bbc4ef4672de629f
+  owner: agent-orchestration
+  consumers:
+  - backend
+  guarantees:
+    side_effects: A request may create or advance the specified durable conversation session and invoke only allowlisted
+      read/prediction tools.
+    errors: Invalid request, authentication failure, tool timeout, and upstream model error map to typed API errors;
+      no silent tool omission.
+    timeouts_retries: Backend sets a bounded request deadline; OGX retries model errors only within a configured
+      cap and returns a structured failure on exhaustion.
+    ordering: Messages are serialized per session; repeated request IDs are deduplicated where supported.
+    versioning: OpenAI-compatible Responses API schema pinned to the configured OGX chart; breaking changes require
+      contract revision.
+  verification:
+    provider: helm lint chart/
+    consumer: uv run pytest packages/api/tests/test_ogx_client.py -q
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+- id: llm-api
+  kind: openapi
+  path: contracts/llm-api.yaml
+  content_hash: sha256:5c5faefc80adcfd73e9d0efed9cdf06d2e812cbef4dfc3933e6918f5c5f21bde
+  owner: llm-serving
+  consumers:
+  - agent-orchestration
+  guarantees:
+    side_effects: Inference only; no application database mutations.
+    errors: Model unavailable, invalid model ID, and invalid request are surfaced to OGX as typed upstream failures.
+    timeouts_retries: OGX applies a bounded request timeout and bounded retry policy; no unbounded generation or
+      retry loop.
+    ordering: No ordering guarantee across independent inference requests.
+    versioning: OpenAI-compatible inference API; configured model ID is explicit and changes are deployment values.
+  verification:
+    provider: helm lint chart/
+    consumer: helm lint chart/
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+- id: prediction-mcp
+  kind: json-schema
+  path: contracts/prediction-mcp.json
+  content_hash: sha256:a21a219f22076b669b0c90a5854c3b3dd308eb7575eba7f14aec770333b68d22
+  owner: prediction-tools
+  consumers:
+  - backend
+  - agent-orchestration
+  guarantees:
+    side_effects: Prediction calls are read/inference operations and persist no application rows by themselves;
+      optional cache writes are bounded and disposable.
+    errors: INVALID_INPUT, SUBJECT_NOT_FOUND, MODEL_UNAVAILABLE, FEATURE_SCHEMA_MISMATCH, and UPSTREAM_TIMEOUT are
+      typed MCP errors.
+    timeouts_retries: Maximum identifier batch is configured and bounded; clients use a deadline and retry only
+      transient upstream errors once or twice.
+    ordering: Batch results preserve input subject order and include subject IDs; duplicate IDs are deduplicated
+      within a request.
+    versioning: MCP tool names and JSON Schemas are versioned with the contract; breaking changes require a new
+      schema version.
+  verification:
+    provider: uv run pytest packages/prediction-tools/tests/test_mcp_contract.py -q
+    consumer: helm lint chart/ && uv run pytest packages/api/tests/test_mcp_clients.py -q
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+- id: data-fetch-mcp
+  kind: json-schema
+  path: contracts/data-fetch-mcp.json
+  content_hash: sha256:629c9c6618bb34d5e940f9660b8a3f44c03f955f61c5ac27869c1de049bdbff0
+  owner: data-fetch-tool
+  consumers:
+  - backend
+  - prediction-tools
+  - agent-orchestration
+  guarantees:
+    side_effects: Read-only; no database mutation.
+    errors: INVALID_ENTITY, INVALID_FIELD, INVALID_FILTER, RESULT_LIMIT_EXCEEDED, and DATABASE_UNAVAILABLE are typed
+      MCP errors.
+    timeouts_retries: IDs and result rows are bounded; callers set a deadline and may retry one transient database-unavailable
+      error.
+    ordering: Results use deterministic ordering by stable source key unless the caller specifies an approved sort
+      key.
+    versioning: MCP tool name and schema are versioned; adding a field is compatible, renaming/removing requires
+      a new schema version.
+  verification:
+    provider: uv run pytest packages/data-fetch-tool/tests/test_mcp_contract.py -q
+    consumer: uv run pytest packages/prediction-tools/tests/test_data_fetch_client.py packages/api/tests/test_mcp_clients.py
+      -q && helm lint chart/
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+- id: database-connection
+  kind: typed-interface
+  path: contracts/database-connection.yaml
+  content_hash: sha256:5f1dec685d18b4d760c6753b279618e92e2909ab9b8aad158cb81a59e78cd3d8
+  owner: database
+  consumers:
+  - backend
+  - agent-orchestration
+  - data-fetch-tool
+  - data-generator
+  guarantees:
+    side_effects: Connection only; distinct database roles scope write access for API, OGX state, data fetch, and
+      seeding.
+    errors: Connection, readiness, and authentication failures fail closed; no empty SQLite fallback.
+    timeouts_retries: Clients bound connection pool, connection timeout, and readiness wait; migrations and seeding
+      retry only within a fixed cap.
+    ordering: Migrations complete before seeded data or API traffic that requires the new schema.
+    versioning: Service DNS, database names, Secret key names, and role capabilities are versioned with chart values.
+  verification:
+    provider: helm lint chart/ && helm template chart/ >/dev/null
+    consumer: uv run pytest packages/api/tests/test_database_configuration.py packages/data-fetch-tool/tests/test_database_config.py
+      packages/data-generator/tests/test_generator_database_config.py -q && helm lint chart/
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+- id: database-schema
+  kind: sql-ddl
+  path: contracts/schema.sql
+  content_hash: sha256:d7bae521eb4f09eca4f701bb6be1ba18572109ce257463cac4efd8bc97a275be
+  owner: backend
+  consumers:
+  - data-fetch-tool
+  - data-generator
+  guarantees:
+    side_effects: DDL is applied only by the versioned migration job; never create or alter schema at request time.
+    errors: Constraint violations fail the transaction with a typed application error; raw database errors are not
+      returned to callers.
+    timeouts_retries: Migration lock and statement timeouts are bounded; data-generator uses idempotent upserts
+      and bounded retry.
+    ordering: Migration revisions apply in order; the migration head must match contracts/schema.sql before the
+      generator starts.
+    versioning: Alembic revision chain; destructive changes require an expand/migrate/contract sequence.
+  verification:
+    provider: uv run pytest packages/api/tests/test_schema_parity.py -q
+    consumer: uv run pytest packages/data-fetch-tool/tests/test_schema_compat.py packages/data-generator/tests/test_generator_schema_compat.py
+      -q
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+- id: churn-inference
+  kind: json-schema
+  path: contracts/churn-inference.json
+  content_hash: sha256:9ca36b97f1e992cb7a19b543c7151569e6f36aa75b21ac998fe11a2356061757
+  owner: churn-model-serving
+  consumers:
+  - prediction-tools
+  guarantees:
+    side_effects: Stateless inference; no application database mutation.
+    errors: Invalid tensor, model not ready, invalid model name, and storage errors map to KServe V2 error responses.
+    timeouts_retries: Prediction client uses a bounded timeout; retry only transient readiness/5xx errors within
+      a fixed cap.
+    ordering: One output row per input row, preserving input order.
+    versioning: KServe V2 with model-settings feature width and an ordered feature manifest versioned with the artifact.
+  verification:
+    provider: helm lint chart/
+    consumer: uv run pytest packages/prediction-tools/tests/test_kserve_v2_contract.py -q
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+- id: fraud-inference
+  kind: json-schema
+  path: contracts/fraud-inference.json
+  content_hash: sha256:005df9bed21ee5eeca6a7119860ac6042b8cee59646f3d4f40cde7e944bc7fcb
+  owner: fraud-model-serving
+  consumers:
+  - prediction-tools
+  guarantees:
+    side_effects: Stateless inference; no application database mutation.
+    errors: Invalid tensor, model not ready, invalid model name, and storage errors map to KServe V2 error responses.
+    timeouts_retries: Prediction client uses a bounded timeout; retry only transient readiness/5xx errors within
+      a fixed cap.
+    ordering: One class output per input transaction, preserving input order.
+    versioning: KServe V2 ONNX tensor schema and class ordering are pinned with artifact metadata/manifest.
+  verification:
+    provider: helm lint chart/
+    consumer: uv run pytest packages/prediction-tools/tests/test_kserve_v2_contract.py -q
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+- id: qoe-inference
+  kind: json-schema
+  path: contracts/qoe-inference.json
+  content_hash: sha256:c3bbe6fca5c2c54ddc2118efcdf1c27a00cb833134201d80c3b02b2cc313ab51
+  owner: qoe-model-serving
+  consumers:
+  - prediction-tools
+  guarantees:
+    side_effects: Stateless inference; no application database mutation.
+    errors: Invalid tensor, model not ready, missing preprocessing sidecar, and storage errors are surfaced as typed
+      errors.
+    timeouts_retries: Prediction client uses a bounded timeout; retry only transient readiness/5xx errors within
+      a fixed cap.
+    ordering: One scalar score per input customer/location, preserving input order.
+    versioning: KServe V2 ONNX schema with ordered eight-feature preprocessing manifest versioned with artifacts.
+  verification:
+    provider: helm lint chart/
+    consumer: uv run pytest packages/prediction-tools/tests/test_kserve_v2_contract.py -q
+  change_policy: owner-only; a consumer needing a change returns to the main agent
+build_order:
+  units:
+  - database
+  - data-fetch-tool
+  - churn-model-serving
+  - fraud-model-serving
+  - qoe-model-serving
+  - llm-serving
+  - data-generator
+  - prediction-tools
+  - agent-orchestration
+  - backend
+  - frontend
+  cycle_breaks: []
+components:
+  frontend:
+    work_unit_id: frontend
+    delivery: application
+    type: ui
+    package_path: packages/ui
+    role: Revenue assurance analyst dashboard with on-demand metrics and chat.
+    depends_on:
+    - backend
+    owns_contracts: []
+    consumes_contracts:
+    - frontend-api
+    files_to_create:
+    - path: packages/ui/index.html
+      purpose: Vite HTML shell that mounts the analyst dashboard.
+    - path: packages/ui/package.json
+      purpose: Vite/React package and scripts for the dashboard.
+    - path: packages/ui/tsconfig.json
+      purpose: Strict TypeScript configuration used by the workspace typecheck gate.
+    - path: packages/ui/src/main.tsx
+      purpose: React entry point and router setup.
+    - path: packages/ui/src/routes/dashboard.tsx
+      purpose: Dashboard route with run selection and aggregated metrics.
+    - path: packages/ui/src/components/ChatPanel.tsx
+      purpose: Typed analyst chat UI with pending, completed, and error states.
+    - path: packages/ui/src/services/api.ts
+      purpose: REST service functions generated from the OpenAPI contract.
+    - path: packages/ui/src/hooks/use-scoring-run.ts
+      purpose: TanStack Query hooks keyed by scoring-run ID.
+    - path: packages/ui/src/api/types.ts
+      purpose: Generated API types from contracts/openapi.yaml; never hand-edited.
+    - path: packages/ui/src/routes/dashboard.test.tsx
+      purpose: Dashboard and chat state tests.
+    files_to_modify: []
+    env_vars:
+    - name: VITE_API_BASE_URL
+      description: Same-origin API base path.
+      example: /api/v1
+    references:
+    - kb_file: components/react-frontend.md
+      pinned_approach: B — shadcn/ui + Tailwind dashboard with TanStack data layers; adapt chat to the approved
+        HTTP API
+      source_repo: https://github.com/rh-ai-quickstart/multi-agent-loan-origination
+      source_ref: 1e50e51c334c1b6ed854d81a3f28fd324792f481
+      source_read: true
+      match_reason: React UI patterns for a dashboard and analyst chat.
+      adopt:
+      - Use React 19 and TypeScript with TanStack Router and TanStack Query.
+      - Keep API calls in service functions and hooks; validate responses with Zod and key metric queries by scoring-run
+        ID.
+      - Keep chat messages in typed pending, complete, and error states; the selected v1 interface is request/reply
+        over the REST API.
+      - Run the static UI as a separate image with writable nginx runtime directories for OpenShift arbitrary UIDs.
+      reject:
+      - Mortgage-specific roles, screens, and schemas do not fit the single analyst dashboard.
+      - Keycloak login, password-grant flows, demo identities, and JWTs in query strings are outside the approved
+        auth design.
+      - WebSocket transport is not required by the architecture; no WebSocket/nginx upgrade path is added.
+      - Do not suppress unresolved Vite imports globally.
+      gotchas:
+      - A clean pnpm install can expose undeclared or hoisted imports; verify the frozen-lockfile build and declared
+        dependencies with the UI build/typecheck.
+      - If nginx environment substitution is used, dollar-prefixed variables in config can be mangled; validate
+        rendered nginx configuration in the image build.
+      - OpenShift arbitrary UIDs can fail if nginx runtime directories are read-only; image verification must run
+        with a random non-root UID.
+    implementation_freedom:
+    - Component decomposition and styling within the selected design system.
+    - Dashboard visualization details that preserve PRD metrics.
+    constraints:
+    - Use only the analyst workflow; no mortgage roles or Keycloak login.
+    - Consume generated OpenAPI types; do not hand-write request or response interfaces.
+    - Use the REST chat contract; do not add WebSocket auth or transport without a spec change.
+    acceptance_criteria:
+    - id: frontend-ac-1
+      statement: When API types are generated, the committed client types shall match contracts/openapi.yaml.
+      verify:
+        command: pnpm --filter ui run generate:types && git diff --exit-code packages/ui/src/api/types.ts
+        expect: exit 0
+      evidence_required: The generation command succeeds and git diff is empty.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: pnpm --filter ui run generate:types && git diff --exit-code packages/ui/src/api/types.ts
+        exit_code: 0
+    - id: frontend-ac-2
+      statement: When UI tests run, the dashboard shall render the selected scoring run metrics and chat pending/error
+        states.
+      verify:
+        command: pnpm --filter ui exec vitest run
+        expect: exit 0
+      evidence_required: Vitest summary shows the dashboard and chat tests passing.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: pnpm --filter ui exec vitest run
+        exit_code: 0
+  backend:
+    work_unit_id: backend
+    delivery: application
+    type: backend
+    package_path: packages/api
+    role: FastAPI API for metrics, on-demand scoring runs, chat sessions, and persistence.
+    depends_on:
+    - agent-orchestration
+    - database
+    - prediction-tools
+    - data-fetch-tool
+    owns_contracts:
+    - frontend-api
+    - database-schema
+    consumes_contracts:
+    - ogx-responses
+    - prediction-mcp
+    - data-fetch-mcp
+    - database-connection
+    files_to_create:
+    - path: packages/api/pyproject.toml
+      purpose: uv workspace package and API dependencies.
+    - path: packages/api/src/api/__init__.py
+      purpose: Package marker for workspace type checking and imports.
+    - path: packages/api/src/api/db/__init__.py
+      purpose: Database package marker.
+    - path: packages/api/src/api/routes/__init__.py
+      purpose: Route package marker.
+    - path: packages/api/src/api/services/__init__.py
+      purpose: Service package marker.
+    - path: packages/api/src/api/main.py
+      purpose: FastAPI app factory, lifespan, and router registration.
+    - path: packages/api/src/api/routes/scoring.py
+      purpose: Scoring-run create, status, and results routes from OpenAPI.
+    - path: packages/api/src/api/routes/metrics.py
+      purpose: Dashboard metric query routes.
+    - path: packages/api/src/api/routes/chat.py
+      purpose: Chat request/reply endpoint and session routes.
+    - path: packages/api/src/api/services/scoring.py
+      purpose: Persisted, bounded-batch scoring coordinator with resumable progress.
+    - path: packages/api/src/api/services/chat.py
+      purpose: Session-serialized OGX chat service with durable request replay and conflict handling.
+    - path: packages/api/src/api/services/ogx_client.py
+      purpose: OGX Responses API client adapter.
+    - path: packages/api/src/api/services/mcp_clients.py
+      purpose: Prediction and data-fetch MCP clients with deadlines.
+    - path: packages/api/src/api/db/models.py
+      purpose: SQLAlchemy models matching contracts/schema.sql.
+    - path: packages/api/src/api/db/session.py
+      purpose: Lifespan-managed async engine and session factory.
+    - path: packages/api/alembic.ini
+      purpose: Package-local Alembic CLI configuration for the versioned migration job.
+    - path: packages/api/alembic/env.py
+      purpose: Alembic configuration for versioned schema migrations.
+    - path: packages/api/alembic/versions/0001_initial_schema.py
+      purpose: Initial migration for the approved v1 schema.
+    - path: packages/api/tests/test_openapi_contract.py
+      purpose: Provider contract checks for the public REST API.
+    - path: packages/api/tests/test_scoring.py
+      purpose: Scoring idempotency, batching, and resume tests.
+    - path: packages/api/tests/test_schema_parity.py
+      purpose: Migration/schema contract parity checks.
+    - path: packages/api/tests/test_ogx_client.py
+      purpose: OGX Responses API consumer contract tests.
+    - path: packages/api/tests/test_mcp_clients.py
+      purpose: MCP client consumer contract tests.
+    - path: packages/api/tests/test_database_configuration.py
+      purpose: Database URL and role configuration tests.
+    - path: packages/api/tests/test_chat_idempotency.py
+      purpose: Durable chat response replay, conflict, in-progress, and safe-retry tests.
+    files_to_modify: []
+    env_vars:
+    - name: DATABASE_URL
+      description: Async PostgreSQL DSN sourced from an OpenShift Secret.
+      example: postgresql+asyncpg://<secret-ref>
+    - name: OGX_BASE_URL
+      description: Namespace-local OGX Responses API endpoint.
+      example: http://ogx-ai:8321
+    - name: OGX_MODEL_ID
+      description: Explicit model identifier sent to OGX Responses requests.
+      example: llama-3.1-8b-instruct
+    - name: PREDICTION_MCP_URL
+      description: Namespace-local prediction MCP endpoint.
+      example: http://prediction-tools:8000/mcp
+    - name: DATA_FETCH_MCP_URL
+      description: Namespace-local data-fetch MCP endpoint.
+      example: http://data-fetch-tool:8000/mcp
+    - name: SCORING_BATCH_SIZE
+      description: Maximum identifiers sent to one MCP prediction call.
+      example: '100'
+    references:
+    - kb_file: components/fastapi-backend.md
+      pinned_approach: A — Multi-Runner Chat Dispatch; apply the FastAPI service and session patterns with OGX as
+        the sole orchestrator
+      source_repo: https://github.com/rh-ai-quickstart/ai-virtual-agent
+      source_ref: null
+      source_read: false
+      match_reason: FastAPI patterns for agent sessions, database access, and tool calls; source repo was not fetched
+        in this digest.
+      adopt:
+      - Create the async engine in FastAPI lifespan and inject a short-lived SQLAlchemy AsyncSession per request.
+      - Separate route handlers from services coordinating chat, scoring runs, MCP calls, and persistence.
+      - Use Alembic migrations and explicit async/sync DSN normalization.
+      reject:
+      - Do not dispatch among LlamaStack, LangGraph, and CrewAI; OGX is the single orchestrator.
+      - Do not use SQLite or in-memory conversation persistence.
+      - Do not schedule scoring or run it on startup.
+      gotchas:
+      - Async DSN replacement can double-prefix asyncpg and Alembic needs a sync URL; test both conversions.
+      - In-memory state is lost on restart; verify persisted session resume from PostgreSQL.
+      - Import-time endpoint assertions can mask configuration errors; verify missing settings fail with a clear
+        startup error.
+    - kb_file: architectures/agent-orchestration.md
+      pinned_approach: A — Multi-Runner Chat Dispatch; use the stable service boundary, not framework selection
+      source_repo: https://github.com/rh-ai-quickstart/ai-virtual-agent
+      source_ref: null
+      source_read: false
+      match_reason: Agent orchestration patterns for the API-to-OGX execution boundary; source repo was not fetched
+        in this digest.
+      adopt:
+      - Route session requests through one backend orchestration service with typed request and response contracts.
+      - Keep tool calls and results framework-independent at the backend boundary.
+      - Persist sessions in PostgreSQL so a session can resume after a process restart.
+      reject:
+      - Do not add selectable LangGraph/CrewAI/LlamaStack runners.
+      - Do not use an in-memory checkpointer for durable state.
+      - Do not adopt Dask/deep-research job offloading; scoring remains analyst-triggered.
+      gotchas:
+      - Framework-specific tool events can leak through a normalized adapter; test mapping of a tool call, result,
+        and error.
+      - In-memory state cannot resume after restart; verify session reload by ID.
+      - Scoring can accidentally run at startup; verify no prediction MCP call happens without an explicit scoring
+        request.
+    implementation_freedom:
+    - Internal route/service module decomposition.
+    - Database-backed job claim and checkpoint strategy within the schema contract.
+    constraints:
+    - Scoring starts only on an explicit analyst request; POST returns an accepted run identifier and status.
+    - Process source rows in bounded batches; persist progress and results so a restarted worker can resume safely.
+    - Never call KServe model endpoints directly; prediction and data tools are accessed through MCP.
+    - Do not accept arbitrary SQL, endpoint URLs, or unbounded IDs from chat/tool input.
+    - Session, run, and result writes follow the approved schema contract.
+    acceptance_criteria:
+    - id: backend-ac-1
+      statement: When the API receives a request, the served OpenAPI document shall conform to contracts/openapi.yaml.
+      verify:
+        command: uv run pytest packages/api/tests/test_openapi_contract.py -q
+        expect: exit 0
+      evidence_required: The contract test summary shows the provider check passing.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: uv run pytest packages/api/tests/test_openapi_contract.py -q
+        exit_code: 0
+    - id: backend-ac-2
+      statement: When a scoring request is accepted, the API shall persist a run ID and return HTTP 202 without
+        running scoring at startup.
+      verify:
+        command: uv run pytest packages/api/tests/test_scoring.py -q
+        expect: exit 0
+      evidence_required: The tests show explicit trigger, persisted status, bounded batches, and resume behavior.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: uv run pytest packages/api/tests/test_scoring.py -q
+        exit_code: 0
+    - id: backend-ac-3
+      statement: Repeating a completed chat request with the same session, request ID, and message shall return
+        the persisted response; reusing that session/request ID with a different message shall return IDEMPOTENCY_CONFLICT.
+      verify:
+        command: uv run pytest packages/api/tests/test_chat_idempotency.py -q
+        expect: exit 0
+      evidence_required: Tests show exact response replay and typed conflict behavior using persistent chat-request
+        rows.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: uv run pytest packages/api/tests/test_chat_idempotency.py -q
+        exit_code: 0
+  agent-orchestration:
+    work_unit_id: agent-orchestration
+    delivery: chart
+    type: inference
+    package_path: chart/
+    role: OGX runtime for one analyst agent, tool allowlisting, Responses API, and persistent session state.
+    depends_on:
+    - llm-serving
+    - database
+    - prediction-tools
+    - data-fetch-tool
+    owns_contracts:
+    - ogx-responses
+    consumes_contracts:
+    - llm-api
+    - prediction-mcp
+    - data-fetch-mcp
+    - database-connection
+    files_to_create: []
+    files_to_modify: []
+    env_vars:
+    - name: OGX_BASE_URL
+      description: OGX in-cluster service endpoint used by the API.
+      example: http://ogx-ai:8321
+    - name: OGX_DATABASE_URL
+      description: PostgreSQL metadata/session connection from a Secret.
+      example: from OpenShift Secret
+    - name: OGX_MODEL_ID
+      description: Explicit configured Llama model identifier.
+      example: llama-3.1-8b-instruct
+    references:
+    - kb_file: components/llamastack.md
+      pinned_approach: D — OGX chart with Responses API and PostgreSQL persistence
+      source_repo: https://github.com/rh-ai-quickstart/it-self-service-agent
+      source_ref: v0.0.14
+      source_read: true
+      match_reason: OGX runtime, tool calling, and durable state patterns.
+      adopt:
+      - Pin the ogx-ai chart and use stable in-cluster DNS with a numeric service port.
+      - Use PostgreSQL-backed metadata/session state and disable SQLite fallback.
+      - Select the configured Llama 3.1 8B model explicitly.
+      reject:
+      - Do not configure file_search, vector stores, or pgvector retrieval in v1.
+      - Do not add a post-init scaling Job with kubectl or a latest image.
+      - Do not select the first discovered model nondeterministically.
+      gotchas:
+      - Kubernetes service variables can contain tcp://host:port rather than a numeric port; verify endpoint construction
+        uses explicit service settings.
+      - OGX can fall back to SQLite unless disabled; inspect rendered config for PostgreSQL and no SQLite backend.
+      - Set response limits in model/server config if per-request max_tokens is unsupported by the selected Responses
+        API.
+    - kb_file: architectures/agent-orchestration.md
+      pinned_approach: D — Declarative OGX agent configuration with persistent state
+      source_repo: https://github.com/rh-ai-quickstart/it-self-service-agent
+      source_ref: v0.0.14
+      source_read: true
+      match_reason: Agent configuration and session-resume patterns.
+      adopt:
+      - Keep model ID, prompt, session identity, and allowed tools in declarative configuration.
+      - Persist session state in PostgreSQL and resume it by stable session ID.
+      - Bound retries and define a fallback response for empty or failed model responses.
+      reject:
+      - Do not add LangGraph, Knative events, specialist agents, intent routing, or NeMo Guardrails.
+      gotchas:
+      - In-memory stores lose state on restart; verify state survives recreating the session handler.
+      - Unbounded empty/error retries can hang; verify retry count and delay cap.
+    - kb_file: architectures/mcp-tool-integration.md
+      pinned_approach: D — OGX Responses API native MCP
+      source_repo: https://github.com/rh-ai-quickstart/it-self-service-agent
+      source_ref: v0.0.14
+      source_read: true
+      match_reason: Native MCP registration and allowlisting for OGX.
+      adopt:
+      - Configure MCP servers as native Responses API entries using stable service URLs.
+      - Allowlist exactly predict_churn, predict_fraud, predict_qoe, and fetch_customer_data.
+      - Keep model and database details behind MCP tools.
+      reject:
+      - Do not use LangChain MultiServerMCPClient or unrestricted tool discovery.
+      - Do not copy source-specific ServiceNow identity forwarding.
+      - Do not allow unreviewed write-capable tools.
+      gotchas:
+      - An MCP server can advertise extra tools; verify OGX still exposes exactly the four approved tools.
+      - MCP sessions reconnect after server restarts under OGX control; verify a failed call is bounded and a subsequent
+        request reconnects.
+      - Tool approval behavior must be explicit; verify every allowed tool is read-only or prediction-only.
+    implementation_freedom:
+    - Values names and non-secret resource defaults supported by the pinned chart.
+    constraints:
+    - Configure only predict_churn, predict_fraud, predict_qoe, and fetch_customer_data in the agent allowlist.
+    - Use native MCP entries over streamable HTTP; keep servers internal to the release namespace.
+    - Use PostgreSQL state and disable SQLite/in-memory fallback.
+    - Do not add vector search, RAG, Kubernetes MCP tools, or write-capable agent tools.
+    - Use an explicit model ID and bounded retry behavior.
+    acceptance_criteria:
+    - id: agent-orchestration-ac-1
+      statement: When the chart is linted, the OGX dependency and internal service configuration shall render without
+        error.
+      verify:
+        command: helm lint chart/
+        expect: exit 0
+      evidence_required: Helm lint reports no errors.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: helm lint chart/
+        exit_code: 0
+  llm-serving:
+    work_unit_id: llm-serving
+    delivery: chart
+    type: inference
+    package_path: chart/
+    role: On-cluster vLLM Llama 3.1 8B serving with optional remote OpenAI-compatible fallback configuration.
+    depends_on: []
+    owns_contracts:
+    - llm-api
+    consumes_contracts: []
+    files_to_create: []
+    files_to_modify: []
+    env_vars:
+    - name: LLM_MODEL_ID
+      description: On-cluster model ID used by vLLM and OGX.
+      example: llama-3.1-8b-instruct
+    - name: REMOTE_LLM_BASE_URL
+      description: Optional deployment-time remote endpoint.
+      example: https://<configured-endpoint>/v1
+    - name: REMOTE_LLM_API_KEY
+      description: Optional remote endpoint credential from an OpenShift Secret.
+      example: from OpenShift Secret
+    references:
+    - kb_file: components/vllm.md
+      pinned_approach: A — Single-model vLLM KServe deployment with Helm-controlled model and resources
+      source_repo: https://github.com/rh-ai-quickstart/peoplemesh
+      source_ref: null
+      source_read: false
+      match_reason: vLLM model/runtime settings and GPU configuration for the LLM endpoint; KB source repo was not
+        fetched.
+      adopt:
+      - Configure model ID/URI, runtime arguments, and GPU resources through Helm values.
+      - Use the in-cluster vLLM endpoint by default and allow a remote OpenAI-compatible endpoint at deployment
+        time.
+      reject:
+      - Do not copy Qwen/AWQ defaults or an OAuth patch hook unless the selected deployment requires them.
+      gotchas:
+      - Context length and concurrent sequences affect L4/A10 fit; keep resource/model settings explicit and validate
+        them against the target GPU profile.
+      - If chart authentication patches are enabled, verify they do not race with RHOAI sidecar injection.
+    - kb_file: components/model-serving.md
+      pinned_approach: B — Single-model KServe chart with vLLM
+      source_repo: https://github.com/rh-ai-quickstart/data-governance-co-pilot
+      source_ref: null
+      source_read: false
+      match_reason: Single-model vLLM serving and endpoint alignment with the agent client; KB source repo was not
+        fetched.
+      adopt:
+      - Configure a single model, storage URI, runtime arguments, and resource values.
+      - Keep the served model ID and the OGX model configuration aligned.
+      reject:
+      - Do not add MIG multi-model or MaaS governance configuration.
+      - Do not copy model-specific Qwen/Nemotron tool-call settings without a model requirement.
+      gotchas:
+      - A chart model-ID change must agree with the client configuration; verify one rendered value drives both.
+      - Large context and sequence settings can exceed GPU memory; keep them bounded for the selected GPU profile.
+    implementation_freedom:
+    - GPU resource requests and chart value names within the L4/A10 target profile.
+    constraints:
+    - Pin the ai-architecture-charts llm-service version from architecture-spec.yaml.
+    - Default to the local Llama 3.1 8B endpoint when enabled; remote credentials are Secret references only.
+    - Keep model selection and endpoint configuration outside application code.
+    acceptance_criteria:
+    - id: llm-serving-ac-1
+      statement: When the Helm chart is linted, the vLLM dependency and endpoint values shall render without error.
+      verify:
+        command: helm lint chart/
+        expect: exit 0
+      evidence_required: Helm lint reports no errors.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: helm lint chart/
+        exit_code: 0
+  database:
+    work_unit_id: database
+    delivery: chart
+    type: database
+    package_path: chart/
+    role: PostgreSQL service and connection contract for application data and OGX session state.
+    depends_on: []
+    owns_contracts:
+    - database-connection
+    consumes_contracts: []
+    files_to_create: []
+    files_to_modify: []
+    env_vars:
+    - name: DATABASE_URL
+      description: Application database DSN injected from an OpenShift Secret.
+      example: from OpenShift Secret
+    - name: OGX_DATABASE_URL
+      description: OGX state DSN injected from an OpenShift Secret.
+      example: from OpenShift Secret
+    references:
+    - kb_file: components/pgvector.md
+      pinned_approach: B — Shared PostgreSQL chart with a pre-built connection Secret
+      source_repo: https://github.com/rh-ai-quickstart/ansible-log-analysis
+      source_ref: null
+      source_read: false
+      match_reason: PostgreSQL deployment and connection patterns for relational data and data seeding; source repo
+        was not fetched.
+      adopt:
+      - Use the pgvector chart dependency and PostgreSQL 17 image documented by the KB.
+      - Expose the connection through an OpenShift Secret and wait for database readiness before migrations/seeding.
+      - Keep bulk dataset generation in the data-generator image.
+      reject:
+      - Vector search and MinIO embeddings are not used in v1.
+      - Do not use create_all as the schema lifecycle; use versioned migrations.
+      - Do not normalize DSNs with chained string replacements.
+      gotchas:
+      - The pgvector extension requires a compatible image; verify extension initialization if enabled by the chart.
+      - Billing-cycle grain and latest-cycle churn selection must be preserved; verify dollar weight and selected
+        cycle on seeded fixtures.
+      - Independent regional generation can remove the intended QoE/churn relationship; verify the coupling parameter
+        changes the measured association.
+      - Persistence must survive database restart/upgrade; check rows and required extensions after chart upgrade.
+    implementation_freedom:
+    - PVC size and resource defaults within the demo-scale data profile.
+    constraints:
+    - Pin pgvector chart version 0.1.0 and keep vector search unused in v1.
+    - Keep persistent storage enabled and expose separate least-privilege database credentials for app access, read-only
+      data access, seeding, and OGX state.
+    - Do not place credential values in chart values or Git.
+    acceptance_criteria:
+    - id: database-ac-1
+      statement: When the chart is templated, PostgreSQL resources and Secret references shall render without error.
+      verify:
+        command: helm lint chart/ && helm template chart/ >/dev/null
+        expect: exit 0
+      evidence_required: Helm lint and template commands exit successfully.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: helm lint chart/ && helm template chart/ >/dev/null
+        exit_code: 0
+  churn-model-serving:
+    work_unit_id: churn-model-serving
+    delivery: rhoai
+    type: inference
+    package_path: chart/
+    role: KServe V2 endpoint for the supplied LightGBM v4 churn model.
+    depends_on: []
+    owns_contracts:
+    - churn-inference
+    consumes_contracts: []
+    files_to_create: []
+    files_to_modify: []
+    env_vars:
+    - name: CHURN_MODEL_URI
+      description: External S3-compatible artifact prefix.
+      example: s3://<bucket>/models/churn/1
+    - name: CHURN_STORAGE_SECRET
+      description: Existing namespace-scoped S3 connection Secret name.
+      example: <secret-name>
+    references:
+    - kb_file: architectures/model-serving-gateway.md
+      pinned_approach: C — Traditional model served through KServe and MLServer
+      source_repo: https://github.com/rh-ai-quickstart/portfolio-manager-agent
+      source_ref: null
+      source_read: false
+      match_reason: KServe/MLServer serving pattern; the supplied checkout confirms LightGBM v4 with model.bst.
+      adopt:
+      - Use KServe V2 with the supplied MLServer LightGBM v4 runtime and native model.bst artifact.
+      - Use model-settings.json with an FP32 matrix and validate feature width/order against the model manifest.
+      reject:
+      - Do not use joblib/sklearn wrapper artifacts, BYTES inputs, MinIO upload Jobs, or probability-pair extraction.
+      gotchas:
+      - The runtime expects a dynamic-width FP32 tensor and INT64 class output; verify the exact feature manifest
+        and V2 request shape.
+      - The supplied manifest uses KServe Standard mode and a DataConnection path; verify the configured Secret/path
+        resolves to model.bst and model-settings.json.
+    - kb_file: deployment/helm-kserve-runtime-deployer-job-inline-rbac.md
+      pinned_approach: None — the supplied direct MLServer ServingRuntime and InferenceService are sufficient
+      source_repo: https://github.com/rh-ai-quickstart/multimodal-compliance-monitor
+      source_ref: null
+      source_read: false
+      match_reason: Compared the runtime-deployer Job pattern with the supplied direct MLServer manifests.
+      adopt: []
+      reject:
+      - Do not add a Job with broad RBAC/SCC to create ServingRuntime or InferenceService resources.
+      - Do not add OVMS/Triton runtime switching; MLServer is fixed by the supplied artifact.
+      gotchas:
+      - The deployer Job adds permissions the chart does not need; inspect rendered resources for direct KServe
+        objects and no runtime-deployer Job.
+    - kb_file: deployment/container-build-mlserver-model-unwrap-multistage.md
+      pinned_approach: None — the model is a native LightGBM .bst artifact, not wrapped sklearn joblib
+      source_repo: https://github.com/rh-ai-quickstart/portfolio-manager-agent
+      source_ref: null
+      source_read: false
+      match_reason: Compared joblib unwrapping against the supplied native LightGBM artifact.
+      adopt:
+      - Keep the MLServer model implementation and model URI aligned with the supplied model settings.
+      reject:
+      - Do not build an image that unwraps joblib artifacts or add a model-upload init Job.
+      gotchas:
+      - A wrong URI or implementation prevents model load; verify the settings reference model.bst and metadata
+        exposes the expected feature width.
+    implementation_freedom:
+    - Resource sizing and min/max replicas within the supplied CPU serving profile.
+    constraints:
+    - Use KServe Standard mode, MLServer LightGBM v4, model.bst, and KServe V2.
+    - Use the FP32 ordered feature matrix and INT64 prediction output from the supplied model settings.
+    - Require a feature manifest matching training order and width; do not silently pad or reorder features.
+    - Read artifact URI and Secret name from deployment values; never include credentials.
+    acceptance_criteria:
+    - id: churn-model-serving-ac-1
+      statement: When the Helm chart is linted, the churn InferenceService and runtime templates shall render without
+        error.
+      verify:
+        command: helm lint chart/
+        expect: exit 0
+      evidence_required: Helm lint reports no errors.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: helm lint chart/
+        exit_code: 0
+  fraud-model-serving:
+    work_unit_id: fraud-model-serving
+    delivery: rhoai
+    type: inference
+    package_path: chart/
+    role: KServe V2 endpoint for the supplied RAFM fraud ONNX classifier.
+    depends_on: []
+    owns_contracts:
+    - fraud-inference
+    consumes_contracts: []
+    files_to_create: []
+    files_to_modify: []
+    env_vars:
+    - name: FRAUD_MODEL_URI
+      description: External S3-compatible artifact prefix.
+      example: s3://<bucket>/models/fraud/1
+    - name: FRAUD_STORAGE_SECRET
+      description: Existing namespace-scoped S3 connection Secret name.
+      example: <secret-name>
+    references:
+    - kb_file: architectures/model-serving-gateway.md
+      pinned_approach: C — Traditional model served through KServe and MLServer
+      source_repo: https://github.com/rh-ai-quickstart/portfolio-manager-agent
+      source_ref: null
+      source_read: false
+      match_reason: KServe/MLServer pattern; the supplied checkout uses an ONNX v1 fraud artifact.
+      adopt:
+      - Use KServe V2, MLServer, ONNX v1, and the supplied DataConnection-style storage input.
+      - Keep the ONNX request shape aligned with the training-time Plan_Type one-hot feature manifest.
+      reject:
+      - Do not copy sklearn joblib, MinIO upload Job, BYTES input, or probability-pair assumptions.
+      gotchas:
+      - ONNX tensor names and outputs differ from sklearn; compare a V2 response against ONNX Runtime on the same
+        ordered vector.
+      - Standard-mode access and authentication differ from RawDeployment; verify the rendered service path and
+        required auth.
+    - kb_file: deployment/helm-kserve-mlserver-sklearn-minio-rawdeployment.md
+      pinned_approach: A — KServe InferenceService with MLServer; adapt format and mode to supplied ONNX/Standard
+        manifests
+      source_repo: https://github.com/rh-ai-quickstart/portfolio-manager-agent
+      source_ref: null
+      source_read: false
+      match_reason: KServe MLServer deployment shape; the supplied checkout is ONNX v1 in Standard mode with external
+        S3.
+      adopt:
+      - Use an InferenceService, MLServer runtime, explicit model format, and configured storage input.
+      reject:
+      - Do not copy MinIO annotations/upload Jobs, sklearn format, or RawDeployment mode.
+      gotchas:
+      - Standard and RawDeployment have different endpoint paths; verify the rendered Standard service loads the
+        ONNX artifact from the configured path.
+    implementation_freedom:
+    - CPU/memory requests and replicas within supplied model serving limits.
+    constraints:
+    - Use KServe Standard mode, MLServer ONNX v1, the supplied ONNX artifact, and KServe V2.
+    - Keep Plan_Type one-hot preprocessing and ONNX class ordering aligned with the training artifact.
+    - Expose the positive fraud class as Fraud and the negative class as Non-Fraud according to the artifact class
+      map.
+    - Read artifact URI and Secret name from deployment values; never include credentials.
+    acceptance_criteria:
+    - id: fraud-model-serving-ac-1
+      statement: When the Helm chart is linted, the fraud InferenceService and runtime templates shall render without
+        error.
+      verify:
+        command: helm lint chart/
+        expect: exit 0
+      evidence_required: Helm lint reports no errors.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: helm lint chart/
+        exit_code: 0
+  qoe-model-serving:
+    work_unit_id: qoe-model-serving
+    delivery: rhoai
+    type: inference
+    package_path: chart/
+    role: KServe V2 endpoint for the supplied Starlink QoE ONNX model.
+    depends_on: []
+    owns_contracts:
+    - qoe-inference
+    consumes_contracts: []
+    files_to_create: []
+    files_to_modify: []
+    env_vars:
+    - name: QOE_MODEL_URI
+      description: External S3-compatible artifact prefix.
+      example: s3://<bucket>/models/starlink-qoe
+    - name: QOE_STORAGE_SECRET
+      description: Existing namespace-scoped S3 connection Secret name.
+      example: <secret-name>
+    references:
+    - kb_file: architectures/model-serving-gateway.md
+      pinned_approach: C — Traditional model served through KServe and MLServer
+      source_repo: https://github.com/rh-ai-quickstart/portfolio-manager-agent
+      source_ref: null
+      source_read: false
+      match_reason: KServe/MLServer serving pattern; the supplied checkout uses ONNX v1 and separate QoE preprocessing
+        artifacts.
+      adopt:
+      - Use KServe V2 with MLServer and the supplied ONNX v1 artifact.
+      - Keep the DataConnection path and model file path aligned with the supplied InferenceService.
+      reject:
+      - Do not copy sklearn joblib, MinIO upload, string BYTES input, or classifier probability assumptions.
+      gotchas:
+      - Scaler and label encoders are separate from model.onnx; run a representative sample through preprocessing
+        and compare the KServe score with local ONNX Runtime.
+      - Current training data is Starlink, not telecom QoE; constrain the feature contract to the existing Starlink
+        schema.
+      - The service overrides MLSERVER_MODEL_URI; verify the configured storage prefix contains that exact model
+        file.
+    - kb_file: deployment/makefile-multi-image-runtime-type-deploy-switch.md
+      pinned_approach: A — Explicit deployment-time runtime selector, narrowed to the supplied MLServer ONNX runtime
+      source_repo: https://github.com/rh-ai-quickstart/multimodal-compliance-monitor
+      source_ref: null
+      source_read: false
+      match_reason: Runtime selection pattern; current artifact and supplied manifests fix MLServer in v1.
+      adopt:
+      - If a selector is retained, make the selected runtime explicit in deployment configuration and default it
+        to MLServer.
+      reject:
+      - Do not copy a six-image OpenVINO/Triton matrix, interactive credential flow, or cluster-discovery commands.
+      - Do not expose alternative runtimes when this artifact requires MLServer.
+      gotchas:
+      - An upstream default can select a runtime different from the supplied artifact; render the default and assert
+        MLServer/Standard mode.
+    implementation_freedom:
+    - CPU/memory requests and replicas within supplied model serving limits.
+    constraints:
+    - Use KServe Standard mode, MLServer ONNX v1, and KServe V2.
+    - Use the ordered eight-field FP32 tensor after StandardScaler and season/weather label encoding.
+    - Load scaler and label-encoder sidecars from configured external S3 storage; fail clearly when absent.
+    - Keep the current Starlink feature schema; telecom QoE data is a future enhancement.
+    acceptance_criteria:
+    - id: qoe-model-serving-ac-1
+      statement: When the Helm chart is linted, the QoE InferenceService and runtime templates shall render without
+        error.
+      verify:
+        command: helm lint chart/
+        expect: exit 0
+      evidence_required: Helm lint reports no errors.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: helm lint chart/
+        exit_code: 0
+  prediction-tools:
+    work_unit_id: prediction-tools
+    delivery: application
+    type: worker
+    package_path: packages/prediction-tools
+    role: FastMCP service for churn, fraud, and QoE prediction with feature fetching and KServe adaptation.
+    depends_on:
+    - data-fetch-tool
+    - churn-model-serving
+    - fraud-model-serving
+    - qoe-model-serving
+    owns_contracts:
+    - prediction-mcp
+    consumes_contracts:
+    - data-fetch-mcp
+    - churn-inference
+    - fraud-inference
+    - qoe-inference
+    files_to_create:
+    - path: packages/prediction-tools/pyproject.toml
+      purpose: uv package and FastMCP/KServe client dependencies.
+    - path: packages/prediction-tools/src/prediction_tools/main.py
+      purpose: FastMCP streamable HTTP app and three tool registrations.
+    - path: packages/prediction-tools/src/prediction_tools/schemas.py
+      purpose: Typed domain input/output models.
+    - path: packages/prediction-tools/src/prediction_tools/features.py
+      purpose: Feature manifests and deterministic training-time preprocessing.
+    - path: packages/prediction-tools/src/prediction_tools/kserve_client.py
+      purpose: KServe V2 request/response adapter with bounded timeouts.
+    - path: packages/prediction-tools/src/prediction_tools/cache.py
+      purpose: Bounded success cache with feature-snapshot key and single-flight behavior.
+    - path: packages/prediction-tools/tests/test_mcp_contract.py
+      purpose: Prediction tool contract tests.
+    - path: packages/prediction-tools/tests/test_kserve_v2_contract.py
+      purpose: Model tensor and class mapping tests.
+    - path: packages/prediction-tools/tests/test_data_fetch_client.py
+      purpose: Data-fetch MCP consumer contract tests.
+    files_to_modify: []
+    env_vars:
+    - name: DATA_FETCH_MCP_URL
+      description: Internal data-fetch MCP endpoint.
+      example: http://data-fetch-tool:8000/mcp
+    - name: CHURN_MODEL_URL
+      description: Namespace-local KServe V2 churn endpoint.
+      example: http://churn-prediction-predictor:8080/v2/models/churn-prediction/infer
+    - name: FRAUD_MODEL_URL
+      description: Namespace-local KServe V2 fraud endpoint.
+      example: http://fraud-prediction-predictor:8080/v2/models/fraud-prediction/infer
+    - name: QOE_MODEL_URL
+      description: Namespace-local KServe V2 QoE endpoint.
+      example: http://starlink-qoe-predictor:8080/v2/models/starlink-qoe/infer
+    - name: CHURN_MODEL_AUTH_TOKEN
+      description: Bearer token from a namespace-scoped Secret for the churn KServe endpoint.
+      example: <secret-ref>
+    - name: FRAUD_MODEL_AUTH_TOKEN
+      description: Bearer token from a namespace-scoped Secret for the fraud KServe endpoint.
+      example: <secret-ref>
+    - name: QOE_MODEL_AUTH_TOKEN
+      description: Bearer token from a namespace-scoped Secret for the QoE KServe endpoint.
+      example: <secret-ref>
+    - name: MODEL_FEATURE_MANIFEST_DIR
+      description: Read-only mounted feature manifests and preprocessing sidecar references.
+      example: /etc/telco-models
+    references:
+    - kb_file: architectures/mcp-tool-integration.md
+      pinned_approach: E — Co-deployed FastMCP service with startup tool registration and bounded result caching
+      source_repo: https://github.com/rh-ai-quickstart/multi-agent-loan-origination
+      source_ref: null
+      source_read: true
+      match_reason: MCP tool patterns for three stable prediction functions and a cache; source ref was unavailable.
+      adopt:
+      - Expose predict_churn, predict_fraud, and predict_qoe with typed domain results.
+      - Hide database fetching, preprocessing, KServe V2 payloads, and model URLs inside the service.
+      - Use a bounded cache keyed by prediction type, subject, model version, and feature snapshot; coalesce identical
+        in-flight calls.
+      - Cache successful predictions only and return structured unavailable errors on serving failure.
+      reject:
+      - Do not treat cached tool definitions as inference-result caching.
+      - Do not silently remove a model tool when its service is unavailable.
+      - Do not return JSON-encoded strings or change public tool schemas when serving changes.
+      gotchas:
+      - Tool-definition caching does not prevent repeated inference; verify concurrent identical calls make one
+        request.
+      - Customer-only cache keys can return stale data; verify model-version or feature-snapshot changes invalidate
+        the entry.
+      - MCP restart can stale cached definitions; verify all three names resolve on reconnect.
+      - ONNX class order or numeric output mapping can invert labels; verify fraud class ordering and positive fraud
+        mapping with fixed fixtures.
+    implementation_freedom:
+    - Cache storage implementation within configured TTL/capacity.
+    - Internal package layout beyond the named public files.
+    constraints:
+    - Expose only predict_churn, predict_fraud, and predict_qoe; all calls use bounded customer or transaction identifier
+      batches.
+    - Call fetch_customer_data over MCP for model features; do not query PostgreSQL or call cluster APIs directly.
+    - Validate feature order, width, categorical mappings, ONNX class order, and QoE preprocessing sidecars before
+      inference.
+    - Cache only successful typed results by tool, subject, model version, and feature snapshot.
+    - No arbitrary model URLs, SQL, filesystem paths, or Kubernetes operations in tool arguments.
+    acceptance_criteria:
+    - id: prediction-tools-ac-1
+      statement: When a client connects to the prediction MCP service, it shall expose exactly the three approved
+        prediction tools with typed outputs.
+      verify:
+        command: uv run pytest packages/prediction-tools/tests/test_mcp_contract.py -q
+        expect: exit 0
+      evidence_required: The test report confirms the exact tool names and response schemas.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: uv run pytest packages/prediction-tools/tests/test_mcp_contract.py -q
+        exit_code: 0
+    - id: prediction-tools-ac-2
+      statement: When a KServe inference request is built, the payload and result mapping shall match each model
+        contract and reject feature width/order mismatches.
+      verify:
+        command: uv run pytest packages/prediction-tools/tests/test_kserve_v2_contract.py -q
+        expect: exit 0
+      evidence_required: Tests cover churn tensor shape, fraud class mapping, QoE preprocessing, and mismatch rejection.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: uv run pytest packages/prediction-tools/tests/test_kserve_v2_contract.py -q
+        exit_code: 0
+  data-fetch-tool:
+    work_unit_id: data-fetch-tool
+    delivery: application
+    type: worker
+    package_path: packages/data-fetch-tool
+    role: Read-only FastMCP service for customer/transaction records and allowlisted feature queries.
+    depends_on:
+    - database
+    owns_contracts:
+    - data-fetch-mcp
+    consumes_contracts:
+    - database-connection
+    - database-schema
+    files_to_create:
+    - path: packages/data-fetch-tool/pyproject.toml
+      purpose: uv package with FastMCP and async SQLAlchemy dependencies.
+    - path: packages/data-fetch-tool/src/data_fetch_tool/main.py
+      purpose: FastMCP streamable HTTP app and fetch_customer_data registration.
+    - path: packages/data-fetch-tool/src/data_fetch_tool/schemas.py
+      purpose: Typed entity, field alias, filter, and output schemas.
+    - path: packages/data-fetch-tool/src/data_fetch_tool/repository.py
+      purpose: Read-only async SQLAlchemy queries constrained to approved entities and IDs.
+    - path: packages/data-fetch-tool/src/data_fetch_tool/field_allowlist.py
+      purpose: Public aliases mapped to typed columns and safe JSONB paths.
+    - path: packages/data-fetch-tool/tests/test_mcp_contract.py
+      purpose: MCP tool contract and bounded query tests.
+    - path: packages/data-fetch-tool/tests/test_read_only_access.py
+      purpose: Field allowlist and read-only behavior tests.
+    - path: packages/data-fetch-tool/tests/test_schema_compat.py
+      purpose: SQL schema consumer compatibility tests.
+    - path: packages/data-fetch-tool/tests/test_database_config.py
+      purpose: Read-only database connection configuration tests.
+    files_to_modify: []
+    env_vars:
+    - name: DATABASE_READONLY_URL
+      description: Read-only async PostgreSQL DSN sourced from an OpenShift Secret.
+      example: postgresql+asyncpg://<secret-ref>
+    - name: MCP_HOST
+      description: Internal service bind host.
+      example: 0.0.0.0
+    - name: MCP_PORT
+      description: Internal service port.
+      example: '8000'
+    - name: MAX_FETCH_ROWS
+      description: Maximum rows returned by one tool call.
+      example: '100'
+    references:
+    - kb_file: components/fastapi-backend.md
+      pinned_approach: A — Async SQLAlchemy sessions with explicit tool input filtering
+      source_repo: https://github.com/rh-ai-quickstart/ai-virtual-agent
+      source_ref: v1.1.17
+      source_read: false
+      match_reason: Async relational queries with stable typed outputs for MCP callers.
+      adopt:
+      - Create one async engine/session factory and inject a short-lived AsyncSession per call.
+      - Expose typed customer and transaction data through stable aliases, not ORM internals.
+      - Map requested fields through an allowlist and bind IDs as query parameters.
+      - Use this service for prediction-tool feature reads and analyst-facing fetch_customer_data.
+      reject:
+      - Do not include multi-runner dispatch, MCP discovery, SQLite fallback, or SPA assets in this package.
+      - Never accept arbitrary SQL or caller-supplied endpoint URLs.
+      gotchas:
+      - A missing DATABASE_URL must fail clearly rather than fall back to SQLite.
+      - Unknown field aliases must be rejected before a query is issued.
+      - Omitted, empty, and explicit field lists must return the same documented response shape.
+      - AsyncSession is not shareable across concurrent tasks; verify separate sessions close on success and failure.
+      - Verify every returned row belongs to the requested entity IDs and entity type.
+    implementation_freedom:
+    - Internal query decomposition and pagination strategy within response limits.
+    constraints:
+    - Expose one read-only fetch_customer_data tool with allowlisted entity names, field aliases, filters, and bounded
+      result size.
+    - Use bound SQL parameters and a read-only database role; reject arbitrary SQL, unrecognized JSON paths, and
+      arbitrary URLs.
+    - Return stable typed JSON suitable for both OGX and prediction-tools.
+    acceptance_criteria:
+    - id: data-fetch-tool-ac-1
+      statement: When the MCP tool receives approved IDs and fields, it shall return only matching typed records
+        within the configured row limit.
+      verify:
+        command: uv run pytest packages/data-fetch-tool/tests/test_mcp_contract.py packages/data-fetch-tool/tests/test_read_only_access.py
+          -q
+        expect: exit 0
+      evidence_required: The test output confirms filtering, alias allowlisting, and row limits.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: uv run pytest packages/data-fetch-tool/tests/test_mcp_contract.py packages/data-fetch-tool/tests/test_read_only_access.py
+          -q
+        exit_code: 0
+  data-generator:
+    work_unit_id: data-generator
+    delivery: application
+    type: worker
+    package_path: packages/data-generator
+    role: Finite worker loading and joining the churn, Starlink QoE, and RAFM source datasets.
+    depends_on:
+    - database
+    owns_contracts: []
+    consumes_contracts:
+    - database-connection
+    - database-schema
+    files_to_create:
+    - path: packages/data-generator/pyproject.toml
+      purpose: uv package for Hugging Face ingestion and async PostgreSQL writes.
+    - path: packages/data-generator/src/data_generator/main.py
+      purpose: Finite worker entry point and bounded readiness handling.
+    - path: packages/data-generator/src/data_generator/datasets.py
+      purpose: Pinned dataset loaders and source-row normalization.
+    - path: packages/data-generator/src/data_generator/transform.py
+      purpose: Customer joins, region assignment, and tunable QoE/churn coupling.
+    - path: packages/data-generator/src/data_generator/writer.py
+      purpose: Bounded idempotent upserts for all source and result-support tables.
+    - path: packages/data-generator/tests/test_transform.py
+      purpose: Join, dollar-weight, region coupling, and data integrity tests.
+    - path: packages/data-generator/tests/test_idempotency.py
+      purpose: Repeat/interrupted load idempotency tests.
+    - path: packages/data-generator/tests/test_generator_schema_compat.py
+      purpose: SQL schema consumer compatibility tests.
+    - path: packages/data-generator/tests/test_generator_database_config.py
+      purpose: Seed database connection configuration tests.
+    files_to_modify: []
+    env_vars:
+    - name: DATABASE_URL
+      description: Seed-writer async PostgreSQL DSN from an OpenShift Secret.
+      example: postgresql+asyncpg://<secret-ref>
+    - name: GENERATOR_SEED
+      description: Seed for repeatable synthetic joins and regional assignment.
+      example: '42'
+    - name: REGIONAL_QOE_CHURN_COUPLING
+      description: Tunable strength of the synthetic regional relationship.
+      example: '0.4'
+    - name: INGEST_BATCH_SIZE
+      description: Bounded database insert/upsert batch size.
+      example: '1000'
+    references:
+    - kb_file: deployment/helm-seed-job-dual-curl-python-rag-ingestion.md
+      pinned_approach: A — Finite Python seed Job, adapted for idempotent relational dataset generation
+      source_repo: https://github.com/rh-ai-quickstart/llm-cpu-serving
+      source_ref: 3c82804eb51d7525a5ee470e2dd0a169f6ae55d7
+      source_read: true
+      match_reason: Seed Job lifecycle patterns for the Hugging Face dataset generator.
+      adopt:
+      - Run the generator as a finite worker from the versioned Python image after a bounded database readiness
+        check.
+      - Pass dataset identifiers, snapshot/revision, seed, batch size, and coupling settings as configuration; load
+        data in the worker.
+      - Use stable source keys and upserts so interrupted/repeated runs do not duplicate rows.
+      reject:
+      - Do not add AnythingLLM setup, vector-store creation, HTML extraction, or Kubernetes API RBAC.
+      - Do not mount a script from a ConfigMap into the LLM image.
+      - Do not use unbounded readiness loops or zero retry policy without a defined resume strategy.
+      gotchas:
+      - A DB readiness loop can hang; verify wait/retry is bounded and eventual readiness succeeds.
+      - Filename-based skips do not prevent duplicate relational rows; run the same snapshot twice and verify stable
+        keys/counts.
+    implementation_freedom:
+    - Internal dataset iteration and database chunking within bounded memory.
+    constraints:
+    - Load the full named public dataset snapshots and preserve every source row.
+    - Retain all churn billing cycles and calculate customer dollar_weight as mean TotalBillAmount across all cycles.
+    - Use the latest BillingCycleStart for churn scoring without deleting earlier cycles.
+    - Assign RAFM transaction rows many-to-one to customers; preserve original features and labels, and keep Plan_Type
+      consistent per customer.
+    - Preserve all QoE source samples and use empirical locations/classes; generate regional season/weather and
+      tunable coupling without editing trained-on labels.
+    - Use stable source keys and idempotent upserts; no schedule or implicit app-start scoring.
+    acceptance_criteria:
+    - id: data-generator-ac-1
+      statement: When a deterministic source snapshot is loaded, the worker shall preserve row grain, customer dollar
+        weight, joins, and configured regional coupling.
+      verify:
+        command: uv run pytest packages/data-generator/tests/test_transform.py -q
+        expect: exit 0
+      evidence_required: Tests verify source rows are retained and dollar weight/coupling rules hold.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: uv run pytest packages/data-generator/tests/test_transform.py -q
+        exit_code: 0
+    - id: data-generator-ac-2
+      statement: When the same load is repeated or resumed after interruption, database keys and row counts shall
+        remain stable.
+      verify:
+        command: uv run pytest packages/data-generator/tests/test_idempotency.py -q
+        expect: exit 0
+      evidence_required: The repeat-load tests show no duplicate source keys or inflated counts.
+      status: passed
+      evidence:
+        report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+        command: uv run pytest packages/data-generator/tests/test_idempotency.py -q
+        exit_code: 0
+acceptance_criteria:
+- id: global-ac-1
+  statement: When the repository is linted, all configured linters shall pass.
+  verify:
+    command: make lint
+    expect: exit 0
+  evidence_required: Full make lint output exits successfully.
+  status: passed
+  evidence:
+    report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+    command: make lint
+    exit_code: 0
+- id: global-ac-2
+  statement: When the repository test suite runs, all package tests shall pass.
+  verify:
+    command: make test
+    expect: exit 0
+  evidence_required: Test summaries show zero failures.
+  status: passed
+  evidence:
+    report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+    command: make test
+    exit_code: 0
+- id: global-ac-3
+  statement: When the chart is linted and templated with committed defaults, both commands shall succeed.
+  verify:
+    command: helm lint chart/ && helm template chart/ >/dev/null
+    expect: exit 0
+  evidence_required: Helm lint summary and successful template exit.
+  status: passed
+  evidence:
+    report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+    command: helm lint chart/ && helm template chart/ >/dev/null
+    exit_code: 0
+- id: global-ac-4
+  statement: When all API, MCP, schema, and KServe V2 contract checks run, provider and consumer implementations
+    shall match their frozen contracts.
+  verify:
+    command: uv run pytest packages/api/tests/test_openapi_contract.py packages/api/tests/test_ogx_client.py packages/api/tests/test_mcp_clients.py
+      packages/api/tests/test_schema_parity.py packages/prediction-tools/tests/test_mcp_contract.py packages/prediction-tools/tests/test_kserve_v2_contract.py
+      packages/prediction-tools/tests/test_data_fetch_client.py packages/data-fetch-tool/tests/test_mcp_contract.py
+      packages/data-fetch-tool/tests/test_schema_compat.py packages/data-generator/tests/test_generator_schema_compat.py
+      -q && pnpm --filter ui run generate:types && pnpm --filter ui run typecheck && helm lint chart/
+    expect: exit 0
+  evidence_required: All listed provider/consumer contract tests pass, generated UI types are unchanged, and Helm
+    lint succeeds.
+  status: passed
+  evidence:
+    report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+    command: uv run pytest packages/api/tests/test_openapi_contract.py packages/api/tests/test_ogx_client.py packages/api/tests/test_mcp_clients.py
+      packages/api/tests/test_schema_parity.py packages/prediction-tools/tests/test_mcp_contract.py packages/prediction-tools/tests/test_kserve_v2_contract.py
+      packages/prediction-tools/tests/test_data_fetch_client.py packages/data-fetch-tool/tests/test_mcp_contract.py
+      packages/data-fetch-tool/tests/test_schema_compat.py packages/data-generator/tests/test_generator_schema_compat.py
+      -q && pnpm --filter ui run generate:types && pnpm --filter ui run typecheck && helm lint chart/
+    exit_code: 0
+human_review:
+  resumed_scope: 'User requested integration of the three supplied model deployments on 2026-10-26, explicitly preserving
+    the source pipelines unchanged. This completes the already approved source-serving-checkout decision. Existing
+    package layout, component DAG, namespace/auth boundaries, and external artifact ownership remain approved.
+
+    '
+  summary: Build a React analyst dashboard and async FastAPI API around three supplied KServe models. Two separate
+    FastMCP services expose the three predictions and read-only customer-data access; OGX consumes exactly four
+    native MCP tools. PostgreSQL persists source rows, on-demand scoring runs, prediction results, OGX sessions,
+    and API chat-idempotency records. Helm deploys OGX, vLLM, PostgreSQL, the app workloads, and KServe resources;
+    existing external S3 artifacts remain deployment inputs.
+  delivery_triage:
+    application:
+    - frontend
+    - backend
+    - prediction-tools
+    - data-fetch-tool
+    - data-generator
+    chart:
+    - agent-orchestration
+    - llm-serving
+    - database
+    rhoai:
+    - churn-model-serving
+    - fraud-model-serving
+    - qoe-model-serving
+  package_layout:
+  - packages/ui
+  - packages/api
+  - packages/prediction-tools
+  - packages/data-fetch-tool
+  - packages/data-generator
+  - packages/common and packages/configs from foundation-builder
+  dag_order: database → data-fetch-tool and model/LLM serving → data-generator → prediction-tools → agent-orchestration
+    → backend → frontend. No dependency cycles or cycle breaks.
+  decisions_requiring_approval:
+  - decision: 'Approve the proposed six-table schema: customers, billing_cycles, transactions, qoe_samples, scoring_runs,
+      predictions. This expands the PRD’s conceptual two-table model to preserve every source row and persist scoring
+      results.'
+    rationale: Churn needs all billing cycles for mean dollar weight and latest-cycle scoring; QoE source samples,
+      RAFM transactions, run state, and predictions also need durable grain.
+    reversible: true
+  - decision: Add app.chat_requests for durable API chat idempotency, keyed by (session_id, request_id), preserving
+      request-ID binding through explicit upstream rejections and storing the original completed response payload.
+    rationale: The REST contract promises exact replay for identical request content and IDEMPOTENCY_CONFLICT when
+      a request ID is reused with changed content; database persistence makes that behavior survive API restarts.
+    reversible: true
+  - decision: Use separate FastMCP services for prediction-tools and data-fetch-tool, with streamable HTTP and the
+      four-tool OGX allowlist.
+    rationale: This follows the user direction to use MCP services and keeps database/model details behind stable
+      tool contracts.
+    reversible: true
+  - decision: 'Use the supplied serving checkout at commit 3037c340c5a4a27ae53f95b9146562c12c985c79 as model-serving
+      source: LightGBM v4/KServe V2 for churn, ONNX/MLServer for fraud and QoE, with QoE preprocessing sidecars.'
+    rationale: The provided manifests and pipelines define the current runtime and preprocessing contracts; source
+      checkout separation will be removed as requested.
+    reversible: true
+  - decision: Use external S3-compatible artifact URIs and existing Secret references; this chart does not deploy
+      object storage.
+    rationale: The supplied KServe manifests load existing model artifacts and QoE preprocessing sidecars from S3-compatible
+      storage.
+    reversible: true
+  - decision: 'Approve package layout and the 10 contracts: OpenAPI, OGX Responses API, LLM API, prediction MCP,
+      data-fetch MCP, PostgreSQL connection, SQL schema, and three model inference contracts.'
+    rationale: The layout follows the five application components; each internal boundary has a single provider
+      and a consumer verification command.
+    reversible: true
+  - decision: Pin the KB approaches listed in the component references; retain null source refs where a KB example
+      repo was not fetched.
+    rationale: This prevents component implementers from choosing incompatible patterns. The source checkout’s separate
+      Git commit is pinned independently.
+    reversible: true
+  - decision: Keep the supplied KServe models authenticated and internal to the release namespace rather than preserving
+      their exposed external routes.
+    rationale: Only prediction-tools needs inference access; namespace-local endpoints and network policies reduce
+      the exposed surface while preserving KServe auth.
+    reversible: true
+  deferred:
+  - Actual S3 bucket paths and Secret names are deployment values; credentials and model binaries remain outside
+    Git.
+  - Exact model feature manifests/class metadata must match the deployed artifacts; validate width/order and class
+    mapping before inference.
+  - CI workflows — rh-qs-test-suite.
+  - README and catalog documentation — rh-qs-document after verified deployment.
+  - Cluster installation and live service verification — rh-qs-deploy and rh-qs-verify-deploy.
+  contract_inventory:
+  - 'frontend-api: backend → frontend'
+  - 'ogx-responses: agent-orchestration → backend'
+  - 'llm-api: llm-serving → agent-orchestration'
+  - 'prediction-mcp: prediction-tools → backend and agent-orchestration'
+  - 'data-fetch-mcp: data-fetch-tool → backend, prediction-tools, and agent-orchestration'
+  - 'database-connection: database → backend, agent-orchestration, data-fetch-tool, and data-generator'
+  - 'database-schema: backend → data-fetch-tool and data-generator'
+  - 'churn-inference, fraud-inference, qoe-inference: each model-serving component → prediction-tools'
+validation_rules:
+  source: .codex/skills/rh-qs-implement/spec-template.md#validation-rules
+  checks:
+  - B1
+  - B2
+  - B3
+  - B4
+  - B5
+  - B6
+  - B7
+  - B8
+  - B9
+  - B10
+deviations:
+- work_unit_id: data-generator
+  expected: packages/data-generator/tests/test_schema_compat.py
+  actual: packages/data-generator/tests/test_generator_schema_compat.py
+  reason: The implemented schema consumer test uses the generator-specific filename; verification paths now target
+    the existing test.
+  spec_amendment_needed: false
+- work_unit_id: data-generator
+  expected: packages/data-generator/tests/test_database_config.py
+  actual: packages/data-generator/tests/test_generator_database_config.py
+  reason: The implemented database configuration test uses the generator-specific filename; the file inventory and
+    database-connection consumer verification now target the existing test.
+  spec_amendment_needed: false
+- work_unit_id: backend
+  expected: Existing API code passes the required repository lint gate.
+  actual: Three existing API Python files required formatting only; Python ASTs are unchanged and all gates now
+    pass.
+  reason: Pre-existing formatting failures surfaced while validating this resumed integration.
+  spec_amendment_needed: false
+dependencies:
+- spec: .qs-factory/designs/architecture-spec.yaml
+  fields_used:
+  - components
+  - technology_stack
+  - integration_patterns
+  - testing_strategy
+  content_hash: sha256:8525961ea096aafbe9f01beee6bb608fdeccf024f7b5e26fea2eed0d7b728148
+- spec: .qs-factory/designs/architecture-diagram.mmd
+  fields_used:
+  - component_edges
+  content_hash: sha256:768e680a873197ac633fe35309f28361ebfdf48401c1c2bc2b979fd0d72fc9fb
+- spec: .qs-factory/prds/prd.md
+  fields_used:
+  - use_case_summary
+  - user_flows
+  - data_model
+  - ai_touchpoints
+  - deploy_target
+  - constraints
+  content_hash: sha256:99e986286746a147da622f7b1d17b213e80e355e05a8f570d0c8dc62a2228751
+model_integration:
+  requested_at: '2026-10-26'
+  authorization: Resume the existing implementation under oq-source-serving-checkout and the current explicit user
+    request; preserve supplied pipelines unchanged.
+  source:
+    repository: /home/yelias/Desktop/Projects/gitlab-telco/telco-revenue-assurance-agent
+    commit: 3037c340c5a4a27ae53f95b9146562c12c985c79
+    copy_unchanged:
+    - pipeline/01-telco-revass-randomforest-pipeline.py
+    - pipeline/03-telco-churn-kfp-pipeline.py
+    - pipeline/starlink_qoe_pipeline.py
+    - pipeline/starlink_qoe_pipeline.yaml
+    - serving/churn-inferenceservice.yaml
+    - serving/churn-servingruntime.yaml
+    - serving/rafm-inferenceservice.yaml
+    - serving/rafm-servingruntime.yaml
+    - serving/starlink-qoe-inferenceservice.yaml
+    - serving/starlink-qoe-servingruntime.yaml
+  build_order:
+  - model-contract-alignment
+  - prediction-tools-response-alignment
+  - model-helm-integration
+  work_units:
+    model-contract-alignment:
+      owner: contract-author
+      acceptance_criteria_refs:
+      - model-import-ac-2
+      files_to_modify:
+      - contracts/qoe-inference.json
+      - contracts/fraud-inference.json
+      constraints:
+      - QoE output tensor shape is [batch, 1]; KServe JSON tensor data is flattened.
+      - Fraud may include auxiliary probability tensors; consume exactly one named class tensor with strict identity,
+        shape and class checks.
+      - Preserve public MCP and REST contracts.
+    prediction-tools-response-alignment:
+      owner: component-implementer
+      acceptance_criteria_refs:
+      - model-import-ac-2
+      package_path: packages/prediction-tools
+      files_to_modify:
+      - packages/prediction-tools/src/prediction_tools/kserve_client.py
+      - packages/prediction-tools/tests/test_kserve_v2_contract.py
+      constraints:
+      - Honor corrected frozen inference contracts.
+      - Preserve model/version checking, finite/range checks, timeouts and authentication.
+      - Never fabricate ordered feature manifests or fitted preprocessing sidecars.
+    model-helm-integration:
+      owner: helm-integrator
+      acceptance_criteria_refs:
+      - model-import-ac-1
+      files_to_create:
+      - pipeline/01-telco-revass-randomforest-pipeline.py
+      - pipeline/03-telco-churn-kfp-pipeline.py
+      - pipeline/starlink_qoe_pipeline.py
+      - pipeline/starlink_qoe_pipeline.yaml
+      - serving/churn-inferenceservice.yaml
+      - serving/churn-servingruntime.yaml
+      - serving/rafm-inferenceservice.yaml
+      - serving/rafm-servingruntime.yaml
+      - serving/starlink-qoe-inferenceservice.yaml
+      - serving/starlink-qoe-servingruntime.yaml
+      - serving/source-manifest.json
+      - scripts/verify_model_assets.py
+      files_to_modify:
+      - chart/templates/model-serving-runtimes.yaml
+      - chart/templates/model-inferenceservices.yaml
+      - chart/values.yaml
+      - Makefile
+      - .pre-commit-config.yaml
+      constraints:
+      - Keep copied assets byte-for-byte identical, including original namespaces and pipeline submission code.
+        Never execute pipeline scripts.
+      - Operational Helm resources use release namespace and existing Secret references, omit exported cluster metadata,
+        and retain literal KServe placeholders.
+      - Preserve source runtime env, probes, batching, image digest, model resource requests, replica ranges and
+        timeouts.
+      - 'Preserve source storage prefixes: models/ for fraud, models/churn/1 for churn, models/starlink-qoe for
+        QoE. Support existing URI values as explicit overrides.'
+      - QoE model environment requires MLSERVER_MODEL_URI=/mnt/models/1/model.onnx.
+      - Retain approved authenticated/internal model boundaries. No new live deployment, credentials, retraining,
+        CI, documentation rewrite, or unrelated application changes.
+      - Verify hashes, static Python/YAML parsing, rendered source runtime behavior, storage configuration and namespace/metadata
+        isolation locally.
+  deployment_inputs:
+  - Existing S3 connection Secrets/bucket or explicit model URIs in the destination namespace.
+  - The trained model artifacts and fitted QoE scaler/label encoders.
+  - Exact churn/fraud feature manifests, model versions and tensor metadata.
+  - A populated feature-artifact PVC and model authentication Secrets.
+  limitations:
+  - Copied pipelines do not emit the three application-specific JSON feature manifests; raw pipeline copying cannot
+    fill missing semantic feature metadata.
+  - The supplied deploy-state.yaml remains historical cluster evidence, not a result of this local integration.
+  acceptance_criteria:
+  - id: model-import-ac-1
+    statement: When model assets are verified, the copied files shall match source hashes and the rendered Helm
+      resources shall preserve source serving behavior.
+    verify:
+      command: make verify-model-assets
+      expect: exit 0
+    evidence_required: Source parity, parse, and rendered manifest check output.
+    status: passed
+    evidence:
+      report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+      command: make verify-model-assets
+      exit_code: 0
+  - id: model-import-ac-2
+    statement: When source-shaped QoE and multi-output fraud inference responses are parsed, prediction-tools shall
+      select and validate the trained model outputs.
+    verify:
+      command: uv run pytest packages/prediction-tools/tests/test_kserve_v2_contract.py -q
+      expect: exit 0
+    evidence_required: Real test summary covering source-shaped outputs and malformed response rejection.
+    status: passed
+    evidence:
+      report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+      command: uv run pytest packages/prediction-tools/tests/test_kserve_v2_contract.py -q
+      exit_code: 0
+  execution_mode: Prepare the unchanged pipelines for later training; user confirmed on 2026-10-26. No pipeline
+    submitted in this session.
+  verification_report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+  status: local-integration-verified
+  local_validation_scope: Source copy integrity, static parsing, Helm source parity, contract schemas and application
+    tests. Training runs and real-artifact inference remain unexecuted.
+  formatting_cleanup:
+    files:
+    - packages/api/src/api/services/ogx_client.py
+    - packages/api/tests/test_chat_idempotency.py
+    - packages/api/tests/test_ogx_client.py
+    reason: Required existing make lint failed on pre-existing formatting. Ruff changed formatting only; all three
+      Python ASTs match the session baseline.
+  preexisting_contract_pin_refresh:
+    contract: ogx-responses
+    previous_hash: sha256:455abff25a1c37c2afc237cec0d6ade97c3ad7b374d89b879d4216334712a254
+    current_hash: sha256:b0b23eeede26b786cd10cdb7469490421bf0376a142bdfa2bbc4ef4672de629f
+    reason: The OGX contract already had this content at session start; prior implementation pin was stale. Contract
+      file is unchanged and its consumer tests passed.

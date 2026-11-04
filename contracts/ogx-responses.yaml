@@ -1,0 +1,454 @@
+openapi: 3.1.0
+info:
+  title: OGX Responses API contract
+  version: 1.0.3
+  description: >-
+    Internal synchronous OpenAI-compatible Responses API subset used by the FastAPI
+    backend. The backend attaches the deployment-configured MCP endpoints and fixed
+    analyst instructions to each request; public callers cannot choose tools or URLs.
+    The MCP services expose exactly predict_churn, predict_fraud, predict_qoe, and
+    fetch_customer_data. Public logical-session UUIDs are metadata; durable history
+    uses stored response ancestry rather than the upstream Conversations API.
+servers:
+  - url: /v1
+    description: Namespace-local OGX service; no public Route
+x-allowlisted-tools:
+  - predict_churn
+  - predict_fraud
+  - predict_qoe
+  - fetch_customer_data
+x-contract-guarantees:
+  side_effects: >-
+    A completed request stores an OGX response linked to previous_response_id when
+    present. The backend selects its logical session's latest completed response
+    under its existing advisory lock. Only the four allowlisted read/prediction
+    tools are available; the backend supplies their fixed deployment-configured
+    MCP endpoints and public callers cannot alter them.
+  errors: >-
+    Invalid request, authentication/authorization failure, model failure, tool
+    failure, and tool timeout use the OpenAI-compatible error object. The backend
+    maps them to the public error codes in contracts/errors.md; tool failures are
+    never silently omitted.
+  timeouts_retries: >-
+    The backend deadline is 110 seconds. OGX applies a 90 second inference deadline
+    and at most one retry for a transient model 429/5xx or connection failure, with
+    a 500 millisecond exponential backoff capped at 1 second. It returns a structured
+    error on exhaustion; no unbounded generation or retry loop is allowed.
+  ordering: >-
+    The backend serializes logical sessions with its PostgreSQL advisory lock and
+    deduplicates public request IDs through durable chat-request records. Explicit
+    rejections permit same-content retry; ambiguous failures retain their reservation
+    and are not automatically resubmitted upstream.
+  versioning: >-
+    This internal subset matches ai-architecture-charts/ogx-ai 0.8.6 with the pinned
+    OpenShift AI 3.5 OGX runtime. Revision 1.0.1 corrected response-chain wire drift;
+    revision 1.0.2 leaves output-token budgeting to OGX defaults; revision 1.0.3
+    attaches the fixed MCP tools and analyst instructions. Public UUID/session/request
+    contracts and database schema are unchanged.
+paths:
+  /responses:
+    post:
+      operationId: createResponse
+      summary: Generate one stored response in a logical session history
+      description: >-
+        This internal request disables streaming. The backend adds the configured MCP
+        server references and fixed instructions; public callers cannot supply tools
+        or server URLs.
+      x-side-effects: Stores a response linked to the supplied previous response, when present.
+      x-error-codes: [INVALID_REQUEST, AUTHENTICATION_OR_AUTHORIZATION, RATE_LIMITED, UPSTREAM_UNAVAILABLE, UPSTREAM_TIMEOUT]
+      x-timeouts-and-retries: >-
+        OGX deadline is 90 seconds; at most one retry for transient 429/5xx or a
+        connection failure, with 500 milliseconds exponential backoff capped at 1
+        second. Backend deadline is 110 seconds.
+      x-ordering: Backend advisory locking serializes logical sessions; independent sessions may run concurrently.
+      x-versioning: OGX chart 0.8.6 with OpenShift AI 3.5 runtime; internal wire update 1.0.3 adds fixed MCP tool references.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateResponseRequest'
+            example:
+              model: llama-3.1-8b-instruct
+              input: Which customers have the highest churn class scores?
+              instructions: Use available telco tools for data-backed answers and never invent tool results.
+              metadata:
+                telco_session_id: 8239f3a1-94f0-4e9a-9179-2a7b10ef45b8
+              previous_response_id: resp_01J8Z2N5M9K6
+              store: true
+              stream: false
+              tools:
+                - type: mcp
+                  server_label: prediction-tools
+                  server_url: http://prediction-tools:8000/mcp
+                - type: mcp
+                  server_label: data-fetch-tool
+                  server_url: http://data-fetch-tool:8000/mcp
+              tool_choice: auto
+      responses:
+        '200':
+          description: Final completed response after any configured MCP tool calls.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseObject'
+              example:
+                id: resp_01J8Z2N5M9K7
+                object: response
+                status: completed
+                created_at: 1792581000
+                model: llama-3.1-8b-instruct
+                metadata:
+                  telco_session_id: 8239f3a1-94f0-4e9a-9179-2a7b10ef45b8
+                previous_response_id: resp_01J8Z2N5M9K6
+                store: true
+                output:
+                  - id: msg_01J8Z2N5M9K8
+                    type: message
+                    role: assistant
+                    status: completed
+                    content:
+                      - type: output_text
+                        text: I found 18 customers in churn class 1 for the latest completed run.
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+        '504':
+          $ref: '#/components/responses/UpstreamTimeout'
+components:
+  schemas:
+    CreateResponseRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - model
+      - input
+      - instructions
+      - metadata
+      - store
+      - stream
+      - tools
+      - tool_choice
+      properties:
+        model:
+          type: string
+          minLength: 1
+          description: Explicit model identifier configured for this release.
+          example: llama-3.1-8b-instruct
+        input:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: Analyst text input; the server adds the configured system prompt and tool instructions.
+          example: Which customers have the highest churn class scores?
+        instructions:
+          type: string
+          minLength: 1
+          description: Fixed server-side instructions to use tools for project-data questions and avoid invented results.
+          example: Use available telco tools for data-backed answers and never invent tool results.
+        metadata:
+          $ref: '#/components/schemas/LogicalSessionMetadata'
+        previous_response_id:
+          type:
+          - string
+          - 'null'
+          description: Omit or use null on the first turn. Otherwise use this logical session's latest completed
+            response ID, loaded under the backend session advisory lock; OGX restores its stored input/messages.
+          example: resp_01J8Z2N5M9K6
+        store:
+          type: boolean
+          const: true
+          description: Durable response history is required; false is rejected.
+          example: true
+        stream:
+          type: boolean
+          const: false
+          description: Streaming is disabled for the v1 REST request/reply UI.
+          example: false
+        tools:
+          type: array
+          minItems: 2
+          maxItems: 2
+          description: Fixed, deployment-configured MCP endpoints; public callers cannot supply or modify this list.
+          items:
+            type: object
+            additionalProperties: false
+            required: [type, server_label, server_url]
+            properties:
+              type:
+                type: string
+                const: mcp
+              server_label:
+                type: string
+                enum: [prediction-tools, data-fetch-tool]
+              server_url:
+                type: string
+                format: uri
+        tool_choice:
+          type: string
+          const: auto
+          description: Let the model choose whether to call one of the supplied MCP servers.
+          example: auto
+    ResponseObject:
+      type: object
+      additionalProperties: true
+      required:
+      - id
+      - status
+      - created_at
+      - model
+      - metadata
+      - store
+      - output
+      properties:
+        id:
+          type: string
+          description: OGX-generated response identifier.
+          example: resp_01J8Z2N5M9K7
+        object:
+          type: string
+          const: response
+          description: OpenAI-compatible discriminator; an omitted field defaults to response.
+          example: response
+          default: response
+        status:
+          type: string
+          const: completed
+          description: The synchronous endpoint returns only a completed response.
+          example: completed
+        created_at:
+          type: integer
+          minimum: 0
+          description: Unix timestamp when the response was created.
+          example: 1792581000
+        model:
+          type: string
+          description: Explicit model identifier used for this response.
+          example: llama-3.1-8b-instruct
+        metadata:
+          $ref: '#/components/schemas/LogicalSessionMetadata'
+        previous_response_id:
+          type:
+          - string
+          - 'null'
+          description: Must equal the requested ancestry. Absent or null on the first turn; the backend rejects
+            a mismatched previous response.
+          example: resp_01J8Z2N5M9K6
+        store:
+          type: boolean
+          const: true
+          description: Must confirm this response was stored for durable follow-up history.
+          example: true
+        conversation:
+          type:
+          - string
+          - 'null'
+          description: Optional upstream Conversations API ID. The pinned stored-response schema omits it;
+            the backend tolerates absent, null or string values and does not compare it with the public session
+            UUID.
+          example: null
+        output:
+          type: array
+          minItems: 1
+          description: Completed assistant message output; internal tool calls are not exposed as a caller-controlled
+            interface.
+          items:
+            $ref: '#/components/schemas/AssistantMessage'
+    LogicalSessionMetadata:
+      type: object
+      additionalProperties:
+        type: string
+      required:
+      - telco_session_id
+      description: The backend supplies its public logical-session UUID here and requires the completed response
+        to echo the same value; it is not an upstream Conversations API ID.
+      properties:
+        telco_session_id:
+          type: string
+          format: uuid
+          description: Public session UUID retained across turns and backend restarts.
+          example: 8239f3a1-94f0-4e9a-9179-2a7b10ef45b8
+    AssistantMessage:
+      type: object
+      additionalProperties: true
+      required: [id, type, role, status, content]
+      properties:
+        id:
+          type: string
+          description: OGX message identifier.
+          example: msg_01J8Z2N5M9K8
+        type:
+          type: string
+          const: message
+          description: Responses API message item discriminator.
+          example: message
+        role:
+          type: string
+          const: assistant
+          description: The output role is assistant.
+          example: assistant
+        status:
+          type: string
+          const: completed
+          description: The returned assistant message is complete.
+          example: completed
+        content:
+          type: array
+          minItems: 1
+          description: Final text content blocks.
+          items:
+            $ref: '#/components/schemas/OutputText'
+    OutputText:
+      type: object
+      additionalProperties: true
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          const: output_text
+          description: Text output block discriminator.
+          example: output_text
+        text:
+          type: string
+          description: Final assistant response text.
+          example: I found 18 customers in churn class 1 for the latest completed run.
+    OpenAIError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [message, type, param, code]
+          properties:
+            message:
+              type: string
+              description: Safe error description.
+              example: A configured tool did not complete before the request deadline.
+            type:
+              type: string
+              description: OpenAI-compatible error category.
+              example: server_error
+            param:
+              type: [string, 'null']
+              description: Invalid request field, or null when not field-specific.
+              example: null
+            code:
+              type: [string, 'null']
+              description: Stable code from contracts/errors.md, or null for an unspecified provider category.
+              example: UPSTREAM_TIMEOUT
+  responses:
+    InvalidRequest:
+      description: Request did not match the supported Responses subset.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OpenAIError'
+          example:
+            error:
+              message: stream must be false.
+              type: invalid_request_error
+              param: stream
+              code: INVALID_REQUEST
+    AuthenticationError:
+      description: Internal service authentication failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OpenAIError'
+          example:
+            error:
+              message: Service authentication failed.
+              type: authentication_error
+              param: null
+              code: AUTHENTICATION_OR_AUTHORIZATION
+    AuthorizationError:
+      description: Caller is not authorized for the internal Responses API.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OpenAIError'
+          example:
+            error:
+              message: Service is not authorized for this operation.
+              type: permission_error
+              param: null
+              code: AUTHENTICATION_OR_AUTHORIZATION
+    RateLimited:
+      description: OGX or its configured model rejected the request due to rate limits.
+      headers:
+        Retry-After:
+          description: Suggested delay in seconds.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OpenAIError'
+          example:
+            error:
+              message: The model is temporarily rate limited.
+              type: rate_limit_error
+              param: null
+              code: RATE_LIMITED
+    InternalError:
+      description: Unexpected OGX failure; details are logged under a correlation ID only.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OpenAIError'
+          example:
+            error:
+              message: The response could not be completed.
+              type: server_error
+              param: null
+              code: INTERNAL_ERROR
+    UpstreamError:
+      description: A tool or model returned a non-retryable upstream failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OpenAIError'
+          example:
+            error:
+              message: A configured tool did not complete successfully.
+              type: server_error
+              param: null
+              code: UPSTREAM_UNAVAILABLE
+    UpstreamUnavailable:
+      description: A required model or MCP service is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OpenAIError'
+          example:
+            error:
+              message: A required service is temporarily unavailable.
+              type: server_error
+              param: null
+              code: UPSTREAM_UNAVAILABLE
+    UpstreamTimeout:
+      description: The configured request deadline expired.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OpenAIError'
+          example:
+            error:
+              message: The response deadline expired.
+              type: server_error
+              param: null
+              code: UPSTREAM_TIMEOUT

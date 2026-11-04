@@ -1,0 +1,382 @@
+{
+  "observed_at": "2026-10-26T22:57:22.006631+00:00",
+  "inspection_versions": {
+    "numpy": "2.5.4",
+    "pandas": "3.0.6",
+    "scikit-learn": "1.9.1",
+    "lightgbm": "4.6.0",
+    "imbalanced-learn": "0.14.2",
+    "joblib": "1.6.0",
+    "onnx": "1.23.2",
+    "onnxruntime": "1.31.1"
+  },
+  "trust_scope": "Only artifacts from our approved recorded successful pipeline task outputs are deserialized.",
+  "runtime_response_verified_live": false,
+  "models": {
+    "churn": {
+      "run_id": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+      "assigned_deployment_model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+      "feature_order": [
+        "CallMinutes",
+        "DataUsageGB",
+        "SMSCount",
+        "InternetSessions",
+        "TotalBillAmount",
+        "PaymentStatus",
+        "LateFee",
+        "DiscountsApplied",
+        "SupportInteractionCount",
+        "PrimaryIssueType",
+        "ResolutionTimeMinutes",
+        "SatisfactionScore",
+        "EscalationFlag",
+        "SupportChannel"
+      ],
+      "feature_width": 14,
+      "feature_metadata_agreement": [
+        "training pickle saved feature names",
+        "training dataframe columns",
+        "native Booster feature_name",
+        "classifier feature_name_"
+      ],
+      "training_class_order": [
+        false,
+        true
+      ],
+      "class_dtype": "bool",
+      "native_objective": "binary",
+      "serving_copy_matches_export_sha256": true,
+      "model_settings": {
+        "name": "churn-prediction",
+        "implementation": "mlserver_lightgbm.LightGBMModel",
+        "parameters": {
+          "uri": "model.bst"
+        },
+        "inputs": [
+          {
+            "name": "predict",
+            "datatype": "FP32",
+            "shape": [
+              -1,
+              14
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "predict",
+            "datatype": "INT64",
+            "shape": [
+              -1
+            ]
+          }
+        ]
+      },
+      "input_tensor_name": "predict",
+      "output_tensor_name": "predict",
+      "native_prediction": {
+        "method": "lightgbm.Booster.predict on first 1000 actual training dataframe rows",
+        "dtype": "float64",
+        "shape": [
+          1000
+        ],
+        "min": 0.0227849291977988,
+        "max": 0.6801401795029817,
+        "non_integer_values": 1000,
+        "examples": [
+          0.207592867104669,
+          0.2428975805359058,
+          0.2148708454450649,
+          0.27045940268105706,
+          0.3685278875529171,
+          0.07261976124757082,
+          0.1595389252432999,
+          0.3505502295700257,
+          0.2436626235343924,
+          0.5000724823803594
+        ],
+        "positive_count": 43,
+        "exactly_matches_classifier_positive_probability": true,
+        "strict_greater_than_half_matches_classifier_labels": true,
+        "int_cast_label_mismatch_count": 43
+      },
+      "classifier_predict_source": "    def predict(\n        self,\n        X: _LGBM_ScikitMatrixLike,\n        raw_score: bool = False,\n        start_iteration: int = 0,\n        num_iteration: Optional[int] = None,\n        pred_leaf: bool = False,\n        pred_contrib: bool = False,\n        validate_features: bool = False,\n        **kwargs: Any,\n    ):\n        \"\"\"Docstring is inherited from the LGBMModel.\"\"\"\n        result = self.predict_proba(\n            X=X,\n            raw_score=raw_score,\n            start_iteration=start_iteration,\n            num_iteration=num_iteration,\n            pred_leaf=pred_leaf,\n            pred_contrib=pred_contrib,\n            validate_features=validate_features,\n            **kwargs,\n        )\n        if callable(self._objective) or raw_score or pred_leaf or pred_contrib:\n            return result\n        else:\n            class_index = np.argmax(result, axis=1)\n            return self._le.inverse_transform(class_index)\n",
+      "proposed_mapping": {
+        "positive_class": true,
+        "negative_class": false,
+        "rule": "class_id = 1 if probability > 0.5 else 0",
+        "tie_at_half": "negative class, matching np.argmax([1-p,p])",
+        "wire_datatype": "FP64",
+        "wire_shape": "[batch,1] via pinned MLServer NumpyCodec"
+      },
+      "contract_mismatch": "Native Booster runtime outputs probabilities, while model-settings.json and application churn contract advertise/require INT64 class IDs.",
+      "local_pinned_runtime_probe": {
+        "rows": 100,
+        "model_name": "churn-prediction",
+        "model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+        "outputs": [
+          {
+            "name": "predict",
+            "shape": [
+              100,
+              1
+            ],
+            "datatype": "FP64",
+            "parameters": {
+              "content_type": "np"
+            }
+          }
+        ],
+        "response_sha256": "3d320e76dd8ef402d1f795a111df02af4376794ea71fe97a4361ad6687b51bad"
+      },
+      "escalation_flag_evidence": {
+        "artifact": "churn/data-prep/x_train_file.pkl",
+        "dtype": "bool",
+        "unique_values": [
+          false,
+          true
+        ],
+        "python_scalar_types": [
+          "bool"
+        ],
+        "rows": 78786
+      },
+      "nullable_category_evidence": {
+        "PrimaryIssueType": {
+          "source_null_count": 18719,
+          "null_source_rows_in_training": 13116,
+          "training_encoded_values_for_null_source": [
+            0.0
+          ]
+        },
+        "SupportChannel": {
+          "source_null_count": 18719,
+          "null_source_rows_in_training": 13116,
+          "training_encoded_values_for_null_source": [
+            0.0
+          ]
+        },
+        "PaymentStatus": {
+          "source_null_count": 0,
+          "null_source_rows_in_training": 0,
+          "training_encoded_values_for_null_source": []
+        }
+      }
+    },
+    "fraud": {
+      "run_id": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7",
+      "assigned_deployment_model_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7",
+      "feature_order": [
+        "Call_Duration",
+        "Data_Usage",
+        "Sms_Count",
+        "Roaming_Indicator",
+        "MobileWallet_Use",
+        "Cost",
+        "Cellular_Location_Distance",
+        "Personal_Pin_Used",
+        "Avg_Call_Duration",
+        "Avg_Data_Usage",
+        "Avg_Cost",
+        "Plan_Type_prepaid"
+      ],
+      "feature_width": 12,
+      "feature_metadata_agreement": [
+        "training pickle saved feature names",
+        "training dataframe columns",
+        "classifier feature_names_in_"
+      ],
+      "training_class_order": [
+        0,
+        1
+      ],
+      "onnx_class_order": [
+        0,
+        1
+      ],
+      "manifest_class_order": [
+        false,
+        true
+      ],
+      "plan_type_categories": [
+        "postpaid",
+        "prepaid"
+      ],
+      "plan_type_dropped_baseline": "postpaid",
+      "input_metadata": [
+        {
+          "name": "float_input",
+          "type": "tensor(float)",
+          "shape": [
+            null,
+            12
+          ]
+        }
+      ],
+      "output_metadata": [
+        {
+          "name": "label",
+          "type": "tensor(int64)",
+          "shape": [
+            null
+          ]
+        },
+        {
+          "name": "probabilities",
+          "type": "tensor(float)",
+          "shape": [
+            null,
+            2
+          ]
+        }
+      ],
+      "sample_prediction": {
+        "rows": 1000,
+        "class_dtype": "int64",
+        "class_shape": [
+          1000
+        ],
+        "class_values": [
+          0,
+          1
+        ],
+        "probability_dtype": "float32",
+        "probability_shape": [
+          1000,
+          2
+        ],
+        "label_mismatches_vs_trained_classifier": 0
+      },
+      "serving_copy_matches_export_sha256": true,
+      "onnx_checker": "passed",
+      "local_pinned_runtime_probe": {
+        "rows": 100,
+        "model_name": "fraud-prediction",
+        "model_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7",
+        "outputs": [
+          {
+            "name": "predict",
+            "shape": [
+              100,
+              1
+            ],
+            "datatype": "INT64",
+            "parameters": {
+              "content_type": "np"
+            }
+          }
+        ],
+        "response_sha256": "70f4a9d7fbab779f8574894c6ab1182072594589a47c59d59fde67a457f3231a"
+      }
+    },
+    "qoe": {
+      "run_id": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+      "assigned_deployment_model_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+      "feature_order": [
+        "latitude",
+        "longitude",
+        "elevation_m",
+        "visible_satellites",
+        "serving_satellites",
+        "signal_loss_db",
+        "season_encoded",
+        "weather_encoded"
+      ],
+      "feature_width": 8,
+      "feature_metadata_agreement": [
+        "fitted scaler feature_names_in_",
+        "training dataframe columns"
+      ],
+      "scaler_type": "StandardScaler",
+      "scaler_mean": [
+        3.839118424163704,
+        -25.784746921581235,
+        311.2813677132416,
+        15.66889,
+        3.00298,
+        0.7203018913060657,
+        1.4996,
+        2.57886
+      ],
+      "scaler_scale": [
+        34.19476888852738,
+        92.6193939653013,
+        630.3158898815971,
+        2.3271949140327717,
+        0.7634075710916156,
+        0.1955180234523941,
+        1.1161629988491824,
+        2.1857678514426
+      ],
+      "encoder_classes": {
+        "season": [
+          "Fall",
+          "Spring",
+          "Summer",
+          "Winter"
+        ],
+        "weather": [
+          "Clear",
+          "Dense_Fog",
+          "Heavy_Rain",
+          "Light_Rain",
+          "Moderate_Rain",
+          "Rain",
+          "Snow"
+        ]
+      },
+      "preprocessing_artifact_hashes": {
+        "scaler.joblib": "af0afda7ce3970430d4179058a1d69aa099b9100e4bb1745c709948cf7f4d3cf",
+        "label_encoders.joblib": "8c6215c1e5b1e47348d41b0e3f0da391454959b01cc28cac468ebc4a09dd1437"
+      },
+      "model_metadata": "Actual ONNX graph and exact pinned ODH runtime wrapper verified locally; live deployment verification pending.",
+      "input_metadata": [
+        {
+          "name": "input",
+          "shape": [
+            "batch_size",
+            1,
+            8
+          ],
+          "type": "tensor(float)"
+        }
+      ],
+      "output_metadata": [
+        {
+          "name": "output",
+          "shape": [
+            "batch_size",
+            1
+          ],
+          "type": "tensor(float)"
+        }
+      ],
+      "onnx_checker": "passed",
+      "serving_copy_matches_export_sha256": true,
+      "serving_preprocessing_matches_data_prep": true,
+      "local_pinned_runtime_probe": {
+        "rows": 100,
+        "model_name": "starlink-qoe",
+        "model_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+        "outputs": [
+          {
+            "name": "predict",
+            "shape": [
+              100,
+              1
+            ],
+            "datatype": "FP32",
+            "parameters": {
+              "content_type": "np"
+            }
+          }
+        ],
+        "response_sha256": "2f632836754d5803f6fbdd74fff6800210a82d9747d7e1a2de377a8b5f114b1a",
+        "minimum_score": 55.19541549682617,
+        "maximum_score": 96.7848129272461,
+        "all_values_finite_in_score_range": true
+      }
+    }
+  },
+  "completed_at": "2026-10-26T23:17:04.249419+00:00"
+}

@@ -1,0 +1,31 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "telco.fullname" . }}-model-inference
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "prediction-tools") | nindent 4 }}
+rules:
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["inferenceservices"]
+    resourceNames:
+      - {{ .Values.modelServing.churn.serviceName | quote }}
+      - {{ .Values.modelServing.fraud.serviceName | quote }}
+      - {{ .Values.modelServing.qoe.serviceName | quote }}
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "telco.fullname" . }}-model-inference
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "prediction-tools") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "telco.fullname" . }}-model-inference
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "telco.serviceAccount" (dict "root" . "suffix" "prediction-tools") }}
+    namespace: {{ .Release.Namespace }}

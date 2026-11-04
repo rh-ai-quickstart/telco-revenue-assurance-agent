@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.api.serviceName }}
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "api") | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "telco.componentSelector" (dict "root" . "component" "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "telco.componentSelector" (dict "root" . "component" "api") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "telco.serviceAccount" (dict "root" . "suffix" "api") }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.securityContext.pod | nindent 8 }}
+      initContainers:
+        - name: wait-for-schema-and-seed
+          image: {{ printf "%s:%s" .Values.api.image (.Values.api.imageTag | default .Values.image.tag) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-c"]
+          args:
+            - |
+              import asyncio
+              import os
+              import time
+              import asyncpg
+
+              dsn = os.environ["DATABASE_URL"]
+              dsn = dsn.replace("postgresql+asyncpg://", "postgresql://", 1)
+              deadline = time.monotonic() + {{ .Values.api.startupWaitSeconds }}
+
+              async def wait_for_seed():
+                  while time.monotonic() < deadline:
+                      connection = None
+                      try:
+                          connection = await asyncpg.connect(dsn=dsn, timeout=10)
+                          ready = await connection.fetchval(
+                              "SELECT to_regclass('app.customers') IS NOT NULL "
+                              "AND to_regclass('app.billing_cycles') IS NOT NULL "
+                              "AND to_regclass('app.transactions') IS NOT NULL "
+                              "AND to_regclass('app.qoe_samples') IS NOT NULL "
+                              "AND EXISTS (SELECT 1 FROM app.customers) "
+                              "AND EXISTS (SELECT 1 FROM app.billing_cycles) "
+                              "AND EXISTS (SELECT 1 FROM app.transactions) "
+                              "AND EXISTS (SELECT 1 FROM app.qoe_samples)"
+                          )
+                          if ready:
+                              return
+                      except Exception:
+                          pass
+                      finally:
+                          if connection is not None:
+                              await connection.close()
+                      await asyncio.sleep(10)
+                  raise SystemExit("PostgreSQL schema or seed data did not become ready before the deadline.")
+
+              asyncio.run(wait_for_seed())
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.databaseSecretName }}
+                  key: {{ .Values.api.databaseSecretKey }}
+            - name: HOME
+              value: /tmp
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 512Mi
+      containers:
+        - name: api
+          image: {{ printf "%s:%s" .Values.api.image (.Values.api.imageTag | default .Values.image.tag) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["uvicorn"]
+          args:
+            - api.main:create_app
+            - --factory
+            - --host
+            - 0.0.0.0
+            - --port
+            - {{ .Values.api.port | quote }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.databaseSecretName }}
+                  key: {{ .Values.api.databaseSecretKey }}
+            - name: OGX_BASE_URL
+              value: {{ .Values.api.ogxBaseUrl | quote }}
+            - name: OGX_MODEL_ID
+              value: {{ .Values.api.ogxModelId | quote }}
+            - name: PREDICTION_MCP_URL
+              value: {{ .Values.api.predictionMcpUrl | quote }}
+            - name: DATA_FETCH_MCP_URL
+              value: {{ .Values.api.dataFetchMcpUrl | quote }}
+            - name: SCORING_BATCH_SIZE
+              value: {{ .Values.api.scoringBatchSize | quote }}
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: HOME
+              value: /tmp
+            - name: TMPDIR
+              value: /tmp
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.port }}
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /openapi.json
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /openapi.json
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /openapi.json
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}

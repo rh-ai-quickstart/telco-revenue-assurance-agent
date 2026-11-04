@@ -1,0 +1,44 @@
+observed_at: '2026-10-26T23:38:22.251421+00:00'
+stage: models-serving
+helm_revision: 3
+deploy_execute_status: success
+working_directory: repository root
+reproduction_command: helm upgrade --install telco-revenue-assurance-agent chart/
+  -n telco-revenue-assurance-agent -f chart/values.yaml --set llm-service.enabled=false
+  --set global.models.llama-3-1-8b-instruct.enabled=false --set ogx-ai.models.remote-llm.enabled=true
+  --set-string ogx-ai.models.remote-llm.url=https://llama-3-3-70b-instruct-w8a8-llama-3-70b-quantized.apps.ai-dev04.kni.syseng.devcluster.openshift.com/v1
+  --set-string api.ogxModelId=remote-llm/llama-3-3-70b-instruct-w8a8 --set-string
+  'ogx-ai.extraSecretRefs[0].name=telco-ogx-db,ogx-ai.extraSecretRefs[1].name=telco-remote-llm'
+  --set ogx-ai.models.remote-llm.tlsVerify=true --set-string api.imageTag=0.1.0-chat-7aedd95bd5ef
+  -f .qs-factory/pipeline/model-artifacts/models-only-values.yaml --no-hooks
+executed_command: helm upgrade --install telco-revenue-assurance-agent chart/ -n telco-revenue-assurance-agent
+  -f chart/values.yaml --set llm-service.enabled=false --set global.models.llama-3-1-8b-instruct.enabled=false
+  --set ogx-ai.models.remote-llm.enabled=true --set-string ogx-ai.models.remote-llm.url=https://llama-3-3-70b-instruct-w8a8-llama-3-70b-quantized.apps.ai-dev04.kni.syseng.devcluster.openshift.com/v1
+  --set-string api.ogxModelId=remote-llm/llama-3-3-70b-instruct-w8a8 --set-string
+  'ogx-ai.extraSecretRefs[0].name=telco-ogx-db,ogx-ai.extraSecretRefs[1].name=telco-remote-llm'
+  --set ogx-ai.models.remote-llm.tlsVerify=true --set-string api.imageTag=0.1.0-chat-7aedd95bd5ef
+  -f /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/runtime-model-values.models-only.yaml
+  --no-hooks
+hooks_executed: false
+no_hooks_reason: Existing schema, grants and seed already verified; models-only stage
+  has no migration and must preserve database hooks and data.
+values_file: models-only-values.yaml
+model_readiness_evidence: model-serving-readiness.json
+source_assets_integrity: All ten original source asset hashes verified by make verify-model-assets
+  after configuration changes.
+configuration_fix:
+  health_attempt: 2
+  required_protocol_annotation: opendatahub.io/connection-type-protocol=s3
+  legacy_annotation_retained: opendatahub.io/connection-type=s3
+  credential_data_unchanged: true
+  provisioning_source: deployment/models/prepare_storage.py
+  documentation: deployment/serving/README.md
+  declarative_storage_source: chart/templates/model-inferenceservices.yaml
+  manual_drift_restoration_evidence: model-storage-declared-field-restoration.json
+  manual_drift_restoration_reason: Revision3 succeeded but did not restore unchanged
+    CR fields removed by prior invalid admission; only existing Helm-declared storage
+    key/path fields were restored.
+  runtime_and_startup_probes_changed: false
+application_complete: false
+pending_application: prediction-tools remains intentionally at zero replicas with
+  previously approved image; no application source patch applied during this stage.

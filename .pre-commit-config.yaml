@@ -1,0 +1,35 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: Ruff check
+        entry: uv run ruff check --config packages/configs/ruff.toml packages/
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: ruff-format
+        name: Ruff format check
+        entry: uv run ruff format --check --config packages/configs/ruff.toml packages/
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: mypy
+        name: Strict mypy
+        entry: uv run mypy --config-file packages/configs/mypy.ini packages/
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: node-lint-and-types
+        name: Node lint and type check
+        entry: pnpm exec turbo run lint typecheck
+        language: system
+        files: \.tsx?$
+        pass_filenames: false
+      - id: prettier
+        name: Prettier check
+        entry: pnpm exec prettier --config packages/configs/prettier.json --check
+        language: system
+        files: \.(ts|tsx|js|mjs|cjs|jsx|json|yml|yaml|md)$
+        # Preserve copied upstream assets; make verify-model-assets checks their hashes.
+        exclude: >-
+          ^(pipeline/starlink_qoe_pipeline\.yaml|serving/(churn|rafm|starlink-qoe)-(inferenceservice|servingruntime)\.yaml)$

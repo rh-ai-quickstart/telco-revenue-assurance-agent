@@ -1,0 +1,694 @@
+{
+  "attempt": 1,
+  "automatic_retries": 0,
+  "finished_at": "2026-10-26T23:38:22.098160+00:00",
+  "image": "quay.io/yelias/prediction-tools@sha256:64f3e41745b315369b8e004d01074c3fa8c87f3d93e9c7f601f8f9e71c56036f",
+  "models": {
+    "churn": {
+      "checks": {
+        "anonymous_inference_denied": {
+          "body_sha256": "14577b0ba3d3049e7cfa98820033cedd2d0c3b897ef5451d0cc7a985963e7aa9",
+          "http_status": 401,
+          "status": "pass"
+        },
+        "anonymous_metadata_denied": {
+          "body_sha256": "14577b0ba3d3049e7cfa98820033cedd2d0c3b897ef5451d0cc7a985963e7aa9",
+          "http_status": 401,
+          "status": "pass"
+        },
+        "authorized_inference": {
+          "body_sha256": "76251be6d283b566be3a953d21f4bd723e3a3ffeb1f75348095a0e862ab2e6b4",
+          "http_status": 200,
+          "status": "pass"
+        },
+        "authorized_versioned_metadata": {
+          "body_sha256": "94f7451ffc4f766533d30096e851b576f42d0476fee92e04898ab8cc4e9f7f59",
+          "http_status": 200,
+          "status": "pass"
+        },
+        "wire_contract_and_reference": {
+          "status": "pass"
+        }
+      },
+      "expected_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+      "metadata": {
+        "inputs": [
+          {
+            "datatype": "FP32",
+            "name": "predict",
+            "shape": [
+              -1,
+              14
+            ]
+          }
+        ],
+        "name": "churn-prediction",
+        "outputs": [
+          {
+            "datatype": "FP64",
+            "name": "predict",
+            "shape": [
+              -1,
+              1
+            ]
+          }
+        ],
+        "platform": "",
+        "versions": []
+      },
+      "metadata_version_note": "Version-specific metadata URL returned 200; metadata.versions describes runtime dependencies. Inference model_version is checked separately.",
+      "response": {
+        "id": "live-churn-attempt-1",
+        "model_name": "churn-prediction",
+        "model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+        "outputs": [
+          {
+            "data": [
+              0.207592867104669,
+              0.2428975805359058,
+              0.2148708454450649,
+              0.27045940268105706,
+              0.3685278875529171,
+              0.07261976124757082,
+              0.1595389252432999,
+              0.3505502295700257,
+              0.2436626235343924,
+              0.5000724823803594,
+              0.19610706910349124,
+              0.05485922567632051,
+              0.28967446721560003,
+              0.33983765698622626,
+              0.30188356305011815,
+              0.26058749994044245,
+              0.07774102524698033,
+              0.060053185962312614,
+              0.16095479938609497,
+              0.3792154380458642,
+              0.08064135024450685,
+              0.2707611729881333,
+              0.22420007995165037,
+              0.25889849611824167,
+              0.037254698285687775,
+              0.17353447529250296,
+              0.3238530110937693,
+              0.2695860302808924,
+              0.3553947257692085,
+              0.24588286755978844,
+              0.09982374609349469,
+              0.18178197116796974,
+              0.2835864405496685,
+              0.45357824367294974,
+              0.2066435795992495,
+              0.0926221250759943,
+              0.23385797486659604,
+              0.28107731675065806,
+              0.20148264345350256,
+              0.08325773720463829,
+              0.33783120400315714,
+              0.1105377240174281,
+              0.28257284219113316,
+              0.16040627555392273,
+              0.23419210989307407,
+              0.08097107918795296,
+              0.3989275371750845,
+              0.15277184536804633,
+              0.21954635130054448,
+              0.37774247052340515,
+              0.07425246169349059,
+              0.11013114903193558,
+              0.09431945241974232,
+              0.24378399331250833,
+              0.18538905806626652,
+              0.047387377070569725,
+              0.13345473214873166,
+              0.29895613322347414,
+              0.08083975780273787,
+              0.3421599947329429,
+              0.14242589183259158,
+              0.46639872633211016,
+              0.07376249093174346,
+              0.2601406888167121,
+              0.2260996636888618,
+              0.10684382975337707,
+              0.334330067904807,
+              0.17990029611656344,
+              0.3062723179947089,
+              0.13400472502068078,
+              0.28166007209245775,
+              0.05853556811251658,
+              0.35367411027757795,
+              0.05643338655318368,
+              0.0691177722494305,
+              0.041909180801484876,
+              0.19914749487964833,
+              0.10862288996291336,
+              0.11749177679367544,
+              0.34614689524211034,
+              0.379647389720635,
+              0.2113900714796518,
+              0.12077220124660462,
+              0.26643852575696514,
+              0.3119531896589824,
+              0.0522907467481178,
+              0.329676872923213,
+              0.13827213252694118,
+              0.1121040162484218,
+              0.15778249393173313,
+              0.3623745631760857,
+              0.1976098901739602,
+              0.06946561250652616,
+              0.4196631133118917,
+              0.17958833365541418,
+              0.60427654263526,
+              0.04032593590323072,
+              0.17730303558311059,
+              0.3496238646479733,
+              0.053267628983907044
+            ],
+            "datatype": "FP64",
+            "name": "predict",
+            "parameters": {
+              "content_type": "np"
+            },
+            "shape": [
+              100,
+              1
+            ]
+          }
+        ]
+      },
+      "status": "pass",
+      "summary": {
+        "maximum": 0.60427654263526,
+        "maximum_absolute_difference_vs_local": 0.0,
+        "minimum": 0.037254698285687775,
+        "positive_class_count_probability_gt_half": 2,
+        "request_sha256": "afcc87eeb9d44026ff718be4d51c3849ac05ee046a6f5086ea4c0c1631a77cea",
+        "rows": 100,
+        "source_training_artifact_sha256": "45a830608735cd4c5f06fa01beb532e41307f497d08af9d3ab3dbc6ae4b2b5a4"
+      },
+      "url": "https://churn-prediction-predictor.telco-revenue-assurance-agent.svc:8443/v2/models/churn-prediction/infer"
+    },
+    "fraud": {
+      "checks": {
+        "anonymous_inference_denied": {
+          "body_sha256": "14577b0ba3d3049e7cfa98820033cedd2d0c3b897ef5451d0cc7a985963e7aa9",
+          "http_status": 401,
+          "status": "pass"
+        },
+        "anonymous_metadata_denied": {
+          "body_sha256": "14577b0ba3d3049e7cfa98820033cedd2d0c3b897ef5451d0cc7a985963e7aa9",
+          "http_status": 401,
+          "status": "pass"
+        },
+        "authorized_inference": {
+          "body_sha256": "d532cc6df6818d437d7d3a9902b55fa3c03f82811f12421303a3b2e45f02e107",
+          "http_status": 200,
+          "status": "pass"
+        },
+        "authorized_versioned_metadata": {
+          "body_sha256": "33c345571ef148e62dafe5933814bc76b718b61a57c9756cb72ee88cfbf1b865",
+          "http_status": 200,
+          "status": "pass"
+        },
+        "wire_contract_and_reference": {
+          "status": "pass"
+        }
+      },
+      "expected_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7",
+      "metadata": {
+        "inputs": [
+          {
+            "datatype": "FP32",
+            "name": "float_input",
+            "shape": [
+              -1,
+              12
+            ]
+          }
+        ],
+        "name": "fraud-prediction",
+        "outputs": [
+          {
+            "datatype": "INT64",
+            "name": "label",
+            "shape": [
+              -1
+            ]
+          },
+          {
+            "datatype": "FP32",
+            "name": "probabilities",
+            "shape": [
+              -1,
+              2
+            ]
+          }
+        ],
+        "platform": "",
+        "versions": []
+      },
+      "metadata_version_note": "Version-specific metadata URL returned 200; metadata.versions describes runtime dependencies. Inference model_version is checked separately.",
+      "response": {
+        "id": "live-fraud-attempt-1",
+        "model_name": "fraud-prediction",
+        "model_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7",
+        "outputs": [
+          {
+            "data": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "datatype": "INT64",
+            "name": "predict",
+            "parameters": {
+              "content_type": "np"
+            },
+            "shape": [
+              100,
+              1
+            ]
+          }
+        ]
+      },
+      "status": "pass",
+      "summary": {
+        "maximum": 1,
+        "maximum_absolute_difference_vs_local": 0,
+        "minimum": 0,
+        "positive_class_count": 1,
+        "request_sha256": "b9078f59c04d9a036b3144137e54d73c7388a646e73649abc0a4e54bab85f5b9",
+        "rows": 100,
+        "source_training_artifact_sha256": "2d9ea7270acb4eef0d23898431e7fe4e953b8223cd43bc0c923026eb2272336e"
+      },
+      "url": "https://fraud-prediction-predictor.telco-revenue-assurance-agent.svc:8443/v2/models/fraud-prediction/infer"
+    },
+    "qoe": {
+      "checks": {
+        "anonymous_inference_denied": {
+          "body_sha256": "14577b0ba3d3049e7cfa98820033cedd2d0c3b897ef5451d0cc7a985963e7aa9",
+          "http_status": 401,
+          "status": "pass"
+        },
+        "anonymous_metadata_denied": {
+          "body_sha256": "14577b0ba3d3049e7cfa98820033cedd2d0c3b897ef5451d0cc7a985963e7aa9",
+          "http_status": 401,
+          "status": "pass"
+        },
+        "authorized_inference": {
+          "body_sha256": "610c060fd1724dafea0af600ce85d2c45bb03f866850e244998f8e7292dc52a1",
+          "http_status": 200,
+          "status": "pass"
+        },
+        "authorized_versioned_metadata": {
+          "body_sha256": "34ec04e9d9004bb179477a358aba0c954dce69dc0294c723d8af2152e50d0bfd",
+          "http_status": 200,
+          "status": "pass"
+        },
+        "wire_contract_and_reference": {
+          "status": "pass"
+        }
+      },
+      "expected_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+      "metadata": {
+        "inputs": [
+          {
+            "datatype": "FP32",
+            "name": "input",
+            "shape": [
+              -1,
+              1,
+              8
+            ]
+          }
+        ],
+        "name": "starlink-qoe",
+        "outputs": [
+          {
+            "datatype": "FP32",
+            "name": "output",
+            "shape": [
+              -1,
+              1
+            ]
+          }
+        ],
+        "platform": "",
+        "versions": []
+      },
+      "metadata_version_note": "Version-specific metadata URL returned 200; metadata.versions describes runtime dependencies. Inference model_version is checked separately.",
+      "response": {
+        "id": "live-qoe-attempt-1",
+        "model_name": "starlink-qoe",
+        "model_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+        "outputs": [
+          {
+            "data": [
+              88.31127166748047,
+              75.05133819580078,
+              86.72245025634766,
+              86.36560821533203,
+              89.63094329833984,
+              87.01309204101562,
+              89.96147155761719,
+              88.816162109375,
+              75.66080474853516,
+              90.38716888427734,
+              74.74957275390625,
+              89.00625610351562,
+              91.63566589355469,
+              71.30901336669922,
+              72.44757843017578,
+              80.56112670898438,
+              91.67562866210938,
+              55.19550323486328,
+              90.38320922851562,
+              71.6495361328125,
+              72.66419219970703,
+              90.74939727783203,
+              64.33646392822266,
+              57.46196365356445,
+              76.33875274658203,
+              78.659423828125,
+              88.12313842773438,
+              81.79924774169922,
+              74.86270141601562,
+              87.33724975585938,
+              88.04222106933594,
+              55.993839263916016,
+              67.7040786743164,
+              84.45227813720703,
+              88.02850341796875,
+              74.22148895263672,
+              82.7813949584961,
+              90.52146911621094,
+              89.53612518310547,
+              59.783206939697266,
+              81.3631591796875,
+              84.3404312133789,
+              73.20465850830078,
+              78.37466430664062,
+              82.05809020996094,
+              60.759647369384766,
+              71.63703155517578,
+              89.53607177734375,
+              72.39888763427734,
+              64.33644104003906,
+              76.45097351074219,
+              83.77323150634766,
+              92.51921081542969,
+              88.21023559570312,
+              89.02507781982422,
+              88.1100845336914,
+              87.61834716796875,
+              56.256103515625,
+              92.12663269042969,
+              62.668174743652344,
+              88.75303649902344,
+              77.57927703857422,
+              88.00020599365234,
+              73.62329864501953,
+              70.1810073852539,
+              88.24676513671875,
+              85.81071472167969,
+              73.26559448242188,
+              91.81649780273438,
+              85.01605987548828,
+              77.61602783203125,
+              60.555030822753906,
+              92.0956039428711,
+              82.4909439086914,
+              87.02455139160156,
+              66.61780548095703,
+              58.29274368286133,
+              92.4435806274414,
+              61.24216079711914,
+              59.715694427490234,
+              91.23796844482422,
+              84.34782409667969,
+              89.79218292236328,
+              88.25936126708984,
+              85.00415802001953,
+              76.99498748779297,
+              87.83971405029297,
+              61.72782897949219,
+              85.6964111328125,
+              73.26557922363281,
+              71.73361206054688,
+              80.37834930419922,
+              76.17768096923828,
+              55.19541549682617,
+              75.05147552490234,
+              71.1759033203125,
+              74.87886047363281,
+              96.7848129272461,
+              74.64862823486328,
+              72.07927703857422
+            ],
+            "datatype": "FP32",
+            "name": "predict",
+            "parameters": {
+              "content_type": "np"
+            },
+            "shape": [
+              100,
+              1
+            ]
+          }
+        ]
+      },
+      "status": "pass",
+      "summary": {
+        "maximum": 96.7848129272461,
+        "maximum_absolute_difference_vs_local": 1.52587890625e-05,
+        "minimum": 55.19541549682617,
+        "request_sha256": "843f32b4ade21b69ea1716d5949220666c7267aad9e1878a7e4427990915a198",
+        "rows": 100,
+        "source_training_artifact_sha256": "57bf3ee834f1e2e29af252cadfb2a178465c0de0a616f5b645feb9c999c83786"
+      },
+      "url": "https://starlink-qoe-predictor.telco-revenue-assurance-agent.svc:8443/v2/models/starlink-qoe/infer"
+    }
+  },
+  "observed_at": "2026-10-26T23:38:21.407535+00:00",
+  "scope": "Live HTTPS model-serving diagnostic; no application/DB writes",
+  "service_account": "telco-revenue-assurance-agent-prediction-tools",
+  "status": "pass",
+  "tls_verification": {
+    "certificate_chain": true,
+    "hostname": true,
+    "service_ca_sha256": "0bd6c9b4340317b7c3d71580620b8a607e04dec5842c20e0e1915c78304c3d0c"
+  },
+  "diagnostic_resource_evidence": {
+    "job_name": "telco-model-probe-3c43ff12216a",
+    "job_uid": "7b9d63ff-70c9-4ef8-b0f2-3ea33a91615f",
+    "job_status": {
+      "completionTime": "2026-10-26T23:38:24Z",
+      "conditions": [
+        {
+          "lastProbeTime": "2026-10-26T23:38:24Z",
+          "lastTransitionTime": "2026-10-26T23:38:24Z",
+          "message": "Reached expected number of succeeded pods",
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "SuccessCriteriaMet"
+        },
+        {
+          "lastProbeTime": "2026-10-26T23:38:24Z",
+          "lastTransitionTime": "2026-10-26T23:38:24Z",
+          "message": "Reached expected number of succeeded pods",
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "Complete"
+        }
+      ],
+      "ready": 0,
+      "startTime": "2026-10-26T23:38:20Z",
+      "succeeded": 1,
+      "terminating": 0,
+      "uncountedTerminatedPods": {}
+    },
+    "pod_name": "telco-model-probe-3c43ff12216a-hm46b",
+    "pod_uid": "881ca42b-cc4a-4d14-b9c6-5eac49ad394c",
+    "owner_reference_matches_job": true,
+    "container_statuses": [
+      {
+        "allocatedResources": {
+          "cpu": "100m",
+          "memory": "128Mi"
+        },
+        "containerID": "cri-o://a7e7231d6b372d47be8983e1261d74c14190505dfba6cd2ce5845c3e4276b733",
+        "image": "quay.io/yelias/prediction-tools@sha256:64f3e41745b315369b8e004d01074c3fa8c87f3d93e9c7f601f8f9e71c56036f",
+        "imageID": "quay.io/yelias/prediction-tools@sha256:64f3e41745b315369b8e004d01074c3fa8c87f3d93e9c7f601f8f9e71c56036f",
+        "lastState": {},
+        "name": "model-probe",
+        "ready": false,
+        "resources": {
+          "limits": {
+            "cpu": "1",
+            "memory": "512Mi"
+          },
+          "requests": {
+            "cpu": "100m",
+            "memory": "128Mi"
+          }
+        },
+        "restartCount": 0,
+        "started": false,
+        "state": {
+          "terminated": {
+            "containerID": "cri-o://a7e7231d6b372d47be8983e1261d74c14190505dfba6cd2ce5845c3e4276b733",
+            "exitCode": 0,
+            "finishedAt": "2026-10-26T23:38:22Z",
+            "reason": "Completed",
+            "startedAt": "2026-10-26T23:38:21Z"
+          }
+        },
+        "user": {
+          "linux": {
+            "gid": 0,
+            "supplementalGroups": [
+              0,
+              1002240000
+            ],
+            "uid": 1002240000
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/opt/model-probe",
+            "name": "probe",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/etc/telco-model-ca",
+            "name": "model-service-ca",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/tmp",
+            "name": "tmp"
+          },
+          {
+            "mountPath": "/var/run/telco-model-auth/churn",
+            "name": "churn-auth",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/var/run/telco-model-auth/fraud",
+            "name": "fraud-auth",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/var/run/telco-model-auth/qoe",
+            "name": "qoe-auth",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          }
+        ]
+      }
+    ],
+    "m02_status": "not_complete; full MCP path requires application rollout"
+  }
+}

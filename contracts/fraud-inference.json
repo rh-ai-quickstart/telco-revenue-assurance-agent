@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:telco-revenue-assurance:fraud-inference:1",
+  "title": "KServe V2 RAFM fraud inference request",
+  "description": "Request schema for the supplied ONNX BalancedRandomForest artifact served by MLServer under KServe V2.",
+  "$defs": {
+    "PositiveDimension": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Positive tensor dimension."
+    },
+    "FeatureRow": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "number", "description": "One FP32-compatible feature value." },
+      "description": "One transaction feature row after training-time Plan_Type one-hot preprocessing."
+    },
+    "InputTensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "shape", "datatype", "data"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "KServe tensor name read from deployed model metadata/feature manifest; the supplied pipeline exports float_input."
+        },
+        "shape": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/PositiveDimension", "description": "Batch transaction count, at most 100." },
+            { "$ref": "#/$defs/PositiveDimension", "description": "Feature count declared by the deployed ordered feature manifest." }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Two-dimensional FP32 batch shape [batch, feature_count]."
+        },
+        "datatype": {
+          "type": "string",
+          "const": "FP32",
+          "description": "KServe V2 FP32 input tensor type."
+        },
+        "data": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/FeatureRow" },
+          "description": "Rows align with shape[0]; every row width equals shape[1] and follows the artifact manifest after Plan_Type one-hot encoding with drop_first semantics."
+        }
+      },
+      "description": "Single ONNX input matrix for a bounded transaction batch."
+    },
+    "InferenceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "inputs"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Caller-generated request correlation identifier.",
+          "examples": ["fraud-req-00421"]
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/InputTensor" },
+          "description": "Exactly one FP32 feature matrix tensor."
+        }
+      }
+    },
+    "OutputTensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "shape", "datatype", "data"],
+      "properties": {
+        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Class-output tensor name from the artifact manifest. The consumer selects exactly one tensor with this name, independently of response tensor order."
+        },
+        "shape": {
+          "type": "array",
+          "prefixItems": [{ "$ref": "#/$defs/PositiveDimension", "description": "Number of class IDs; equals input batch size." }, { "type": "integer", "const": 1 }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 2,
+          "description": "One result per row: [batch], or the MLServer NumPy codec shape [batch, 1]."
+        },
+        "datatype": {
+          "type": "string",
+          "enum": ["BOOL", "INT64"],
+          "description": "ONNX metadata supplies the class tensor datatype. BOOL labels and INT64 class indices are both normalized to canonical class IDs; exact artifact metadata is an open question."
+        },
+        "data": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "oneOf": [
+              { "type": "integer", "enum": [0, 1], "description": "Integer class index; 0 is Non-Fraud and 1 is Fraud." },
+              { "type": "boolean", "description": "Boolean class label; false is Non-Fraud and true is Fraud." }
+            ],
+            "description": "Raw model class output, normalized according to the deployed ONNX class metadata."
+          },
+          "description": "One class ID per input transaction, preserving input order."
+        }
+      }
+    },
+    "ProbabilityOutputTensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "shape", "datatype", "data"],
+      "properties": {
+        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Auxiliary probability-output tensor name from ONNX metadata; it must differ from the selected class tensor name."
+        },
+        "shape": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/PositiveDimension", "description": "Input transaction batch size." },
+            { "type": "integer", "const": 2, "description": "One probability for each class in the trained [Non-Fraud, Fraud] order." }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Dense class-probability tensor [batch, 2] emitted by the supplied zipmap=False ONNX export."
+        },
+        "datatype": {
+          "type": "string",
+          "enum": ["FP32", "FP64"],
+          "description": "Numeric probability tensor datatype reported by ONNX metadata."
+        },
+        "data": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 200,
+          "items": { "type": "number", "minimum": 0, "maximum": 1, "description": "One finite class probability." },
+          "description": "Flattened tensor data containing exactly batch times two probabilities. Probabilities are auxiliary and do not replace the model's class output."
+        }
+      }
+    },
+    "InferenceResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "model_name", "model_version", "outputs"],
+      "properties": {
+        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+        "id": { "type": "string", "description": "Request ID echoed by the inference server." },
+        "model_name": { "type": "string", "const": "fraud-prediction", "description": "Configured KServe model name." },
+        "model_version": { "type": "string", "description": "Served artifact version, recorded with prediction results." },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/OutputTensor" },
+              { "$ref": "#/$defs/ProbabilityOutputTensor" }
+            ]
+          },
+          "contains": { "$ref": "#/$defs/OutputTensor" },
+          "minContains": 1,
+          "maxContains": 1,
+          "description": "Exactly one named binary class-output tensor, optionally accompanied by the dense probability tensor from the supplied ONNX export. Tensor names must be unique; response order is not significant."
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/InferenceRequest",
+  "x-response-schema": "#/$defs/InferenceResponse",
+  "x-kserve-v2-route": "/v2/models/fraud-prediction/infer",
+  "x-response-validation": {
+    "identity": "Require model_name fraud-prediction and a model_version equal to the validated artifact manifest.",
+    "selection": "Require unique names across all output tensors and exactly one class tensor whose name equals manifest.output_tensor_name; reject missing or duplicate selected names.",
+    "class_tensor": "Require shape [input_batch_size], matching flat data length, and class values of the declared BOOL or INT64 datatype. Normalize false/0 to Non-Fraud and true/1 to Fraud.",
+    "probability_tensor": "If present, require shape [input_batch_size, 2], matching flat data length, and finite numeric probabilities in [0, 1]. Do not derive or override class labels from this auxiliary tensor."
+  },
+  "x-contract-guarantees": {
+    "side_effects": "Stateless inference; the model service does not mutate application database rows.",
+    "errors": "Invalid tensor, model not ready, invalid model name, and artifact storage failures use KServe V2 error responses and map to INVALID_TENSOR, MODEL_NOT_READY, INVALID_MODEL_NAME, or STORAGE_ERROR.",
+    "timeouts_retries": "Prediction-tools sets a 30 second per-batch deadline and retries one transient readiness/5xx failure after 500 milliseconds; invalid tensors and artifact mismatches are not retried.",
+    "ordering": "Exactly one class output is returned per input transaction and input order is preserved.",
+    "versioning": "KServe V2 tensor schema, ordered feature manifest, and binary class order are pinned with the ONNX artifact."
+  },
+  "x-preprocessing": {
+    "source": "Supplied RAFM fraud training/serving pipeline at commit 3037c340c5a4a27ae53f95b9146562c12c985c79.",
+    "transform": "Plan_Type one-hot encoding with training-time drop_first semantics; the exact ordered feature names and width come from the deployed artifact feature manifest.",
+    "class_order": ["Non-Fraud", "Fraud"],
+    "class_id_mapping": { "0": "Non-Fraud", "1": "Fraud" },
+    "unresolved_artifact_metadata": "The supplied pipeline exports input tensor float_input. Confirm the deployed model version, class/probability output names and datatypes, and ordered feature manifest against the actual artifacts."
+  }
+}

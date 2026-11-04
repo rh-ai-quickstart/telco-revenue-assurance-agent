@@ -1,0 +1,29 @@
+# Draft only: reviewed image built and tested locally; source application and publication approval pending.
+api:
+  imageTag: 0.1.0-chat-7aedd95bd5ef
+predictionTools:
+  imageTag: 0.1.0-models-2a6e269567cf3abd
+  replicaCount: 1
+  modelFeatureManifestDir: /etc/telco-models/current
+  featureArtifactsMountPath: /etc/telco-models
+  featureArtifactsClaim: telco-model-feature-artifacts
+  modelAuth:
+    create: true
+modelServing:
+  churn:
+    modelVersion: 1ea4bc0e-f1c7-44af-8d80-58dc53eaa805
+    storageSecretName: telco-churn-model-storage
+    storagePath: models/churn-serving/1ea4bc0e-f1c7-44af-8d80-58dc53eaa805
+    uri: ''
+  fraud:
+    modelVersion: 4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7
+    storageSecretName: telco-fraud-model-storage
+    storagePath: models/fraud
+    uri: ''
+  qoe:
+    modelVersion: 8b213f6f-abc8-45be-bbaf-7230ffffcd3f
+    storageSecretName: telco-qoe-model-storage
+    storagePath: models/starlink-qoe
+    uri: ''
+dataGenerator:
+  runOnUpgrade: false

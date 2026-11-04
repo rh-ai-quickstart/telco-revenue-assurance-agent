@@ -1,0 +1,43 @@
+configure-pipeline:
+  notebook:
+    create: false
+  secret:
+    create: false
+  aws-compatible-storage:
+    enabled: true
+    fullnameOverride: telco-training-storage
+    s3:
+      existingSecret: telco-training-s3
+      region: us-east-1
+    service:
+      s3Port: 7480
+    storage:
+      data:
+        size: 10Gi
+    sampleFileUpload:
+      enabled: false
+    auth:
+      enabled: false
+    route:
+      enabled: false
+      s3Api:
+        enabled: false
+  pipelineStorage:
+    externalStorage:
+      bucket: mlpipeline
+      region: us-east-1
+
+bucketBootstrap:
+  modelBucket: mybucket
+  image: registry.access.redhat.com/ubi9/python-311:latest
+  activeDeadlineSeconds: 600
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+networkPolicy:
+  operatorNamespace: redhat-ods-applications

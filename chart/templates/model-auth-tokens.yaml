@@ -1,0 +1,23 @@
+{{- if .Values.predictionTools.modelAuth.create -}}
+{{- $root := . -}}
+{{- $seen := dict -}}
+{{- range $auth := list .Values.predictionTools.modelAuth.churn .Values.predictionTools.modelAuth.fraud .Values.predictionTools.modelAuth.qoe -}}
+{{- if ne $auth.tokenKey "token" -}}
+{{- fail "Controller-issued model token Secrets require tokenKey=token" -}}
+{{- end -}}
+{{- if not (hasKey $seen $auth.secretName) }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $auth.secretName }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "telco.componentLabels" (dict "root" $root "component" "prediction-tools") | nindent 4 }}
+  annotations:
+    kubernetes.io/service-account.name: {{ include "telco.serviceAccount" (dict "root" $root "suffix" "prediction-tools") | quote }}
+type: kubernetes.io/service-account-token
+{{- $_ := set $seen $auth.secretName true -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

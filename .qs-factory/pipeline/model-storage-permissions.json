@@ -1,0 +1,59 @@
+{
+  "namespace": "telco-revenue-assurance-agent",
+  "identity": "telco-model-serving",
+  "bucket": "mybucket",
+  "status": "success",
+  "credential_values_recorded": false,
+  "started_at": "2026-10-26T22:49:07.202617+00:00",
+  "secrets": [
+    {
+      "name": "telco-churn-model-storage",
+      "action": "created",
+      "verified": true
+    },
+    {
+      "name": "telco-fraud-model-storage",
+      "action": "created",
+      "verified": true
+    },
+    {
+      "name": "telco-qoe-model-storage",
+      "action": "created",
+      "verified": true
+    }
+  ],
+  "stage": "complete",
+  "canary_key": "models/_telco-serving-access-check/071821cc-5995-408a-b231-22ea9f27e2c9",
+  "get_object_allowed": true,
+  "list_objects_allowed": true,
+  "put_object": {
+    "denied": true,
+    "code": "AccessDenied",
+    "http_status": 403
+  },
+  "delete_object": {
+    "denied": true,
+    "code": "AccessDenied",
+    "http_status": 403
+  },
+  "canary_unchanged_after_denials": true,
+  "canary_removed": true,
+  "owner_keys_permissions_unchanged": true,
+  "identity_action": "created",
+  "policy_action": "extended",
+  "object_read_scope": "s3://mybucket/models/*",
+  "finished_at": "2026-10-26T22:49:31.370212+00:00",
+  "postcheck": {
+    "aggregate_connection_keys": [
+      "telco-churn-model-storage",
+      "telco-fraud-model-storage",
+      "telco-qoe-model-storage"
+    ],
+    "all_three_connections_aggregated": true,
+    "outside_models_get_object": {
+      "denied": true,
+      "code": "AccessDenied",
+      "http_status": 403
+    }
+  }
+}

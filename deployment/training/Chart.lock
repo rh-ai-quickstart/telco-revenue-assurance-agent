@@ -1,0 +1,6 @@
+dependencies:
+- name: configure-pipeline
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.6.0
+digest: sha256:d6ef67406227159aa95f484dd9df27872abba2e7ef004abb7b31667f74aacdbf
+generated: "2026-10-26T23:22:24.287764591+02:00"

@@ -1,0 +1,16 @@
+{
+  "published_at": "2026-11-02T15:26:15Z",
+  "image": "quay.io/yelias/data-fetch-tool:0.1.0-fraud-filter-f218c262be3a726a",
+  "source_fingerprint": "f218c262be3a726abb53d1656204bc1b73ccdfd3c21f4174a1fcec74fc7ad3a0",
+  "local_image_id": "6a1c8b8add3f2bfec976e70f48787b0f37923193e426ce9e833dad09377dddc7",
+  "source_files_verified": {
+    "packages/data-fetch-tool/src/data_fetch_tool/field_allowlist.py": "1494bb386214e5a508b73b01eaccbc7794f785b3880986e72e32653bc4381d1b",
+    "packages/data-fetch-tool/src/data_fetch_tool/repository.py": "f3af7cb5f85758505896c5f14016254ff1a71187350bab497e649a367a2cec32"
+  },
+  "source_hashes_match_build": true,
+  "push_digest": "sha256:59d3cbf5ada224bc24b9bf9d165a7e91deb247168a0b9552725e54f2332e5c47",
+  "immutable_reference": "quay.io/yelias/data-fetch-tool@sha256:59d3cbf5ada224bc24b9bf9d165a7e91deb247168a0b9552725e54f2332e5c47",
+  "registry_digest_verified": true,
+  "user_approval": "User approved applying the filter-only scoring fix, publishing the image, deploying it, and verifying scoring.",
+  "verification": "skopeo inspect digest matches the podman push digestfile."
+}

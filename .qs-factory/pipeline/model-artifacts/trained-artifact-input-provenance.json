@@ -1,0 +1,379 @@
+{
+  "datasets": [
+    {
+      "model": "fraud",
+      "dataset_repo": "fenar/revenue_assurance",
+      "revision": "c80ac8cd7a60bbdead8f756bbb2481072cf1b345",
+      "file": "telecom_revass_data.csv.xz",
+      "canonical_download_url": "https://huggingface.co/datasets/fenar/revenue_assurance/resolve/c80ac8cd7a60bbdead8f756bbb2481072cf1b345/telecom_revass_data.csv.xz?download=true",
+      "local_path": "/home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/datasets/telecom_revass_data.csv.xz",
+      "size_bytes": 62489272,
+      "sha256": "87da56b376dd01e8dd2aceeb3ee024b081f498a19032178b8285d714de8878ce",
+      "matches_hub_lfs_sha256": true,
+      "downloaded_at": "2026-10-26T21:16:16.134594+00:00",
+      "license": "apache-2.0",
+      "conversion_required": false,
+      "source_page": "https://huggingface.co/datasets/fenar/revenue_assurance",
+      "license_metadata": "apache-2.0",
+      "pipeline_source": "/home/yelias/Desktop/Projects/telco-revenue-assurance-agent/pipeline/01-telco-revass-randomforest-pipeline.py",
+      "pipeline_source_sha256": "cb4bb95e6f3b049209a47c166778f36daae1252bb053bf970f3920bd628a10a7",
+      "rows": 1000000,
+      "columns": [
+        "Call_Duration",
+        "Data_Usage",
+        "Sms_Count",
+        "Roaming_Indicator",
+        "MobileWallet_Use",
+        "Plan_Type",
+        "Cost",
+        "Cellular_Location_Distance",
+        "Personal_Pin_Used",
+        "Avg_Call_Duration",
+        "Avg_Data_Usage",
+        "Avg_Cost",
+        "Fraud"
+      ],
+      "dtypes": {
+        "Call_Duration": "float64",
+        "Data_Usage": "float64",
+        "Sms_Count": "int64",
+        "Roaming_Indicator": "int64",
+        "MobileWallet_Use": "int64",
+        "Plan_Type": "str",
+        "Cost": "float64",
+        "Cellular_Location_Distance": "float64",
+        "Personal_Pin_Used": "int64",
+        "Avg_Call_Duration": "float64",
+        "Avg_Data_Usage": "float64",
+        "Avg_Cost": "float64",
+        "Fraud": "int64"
+      },
+      "missing_values": {},
+      "format": "xz-compressed CSV",
+      "target": "Fraud",
+      "label_counts": {
+        "0": 982708,
+        "1": 17292
+      },
+      "plan_type_categories": [
+        "postpaid",
+        "prepaid"
+      ],
+      "plan_type_dropped_baseline": "postpaid",
+      "feature_order_from_source_preprocessing": [
+        "Call_Duration",
+        "Data_Usage",
+        "Sms_Count",
+        "Roaming_Indicator",
+        "MobileWallet_Use",
+        "Cost",
+        "Cellular_Location_Distance",
+        "Personal_Pin_Used",
+        "Avg_Call_Duration",
+        "Avg_Data_Usage",
+        "Avg_Cost",
+        "Plan_Type_prepaid"
+      ],
+      "feature_width": 12,
+      "feature_dtypes": {
+        "Call_Duration": "float64",
+        "Data_Usage": "float64",
+        "Sms_Count": "int64",
+        "Roaming_Indicator": "int64",
+        "MobileWallet_Use": "int64",
+        "Cost": "float64",
+        "Cellular_Location_Distance": "float64",
+        "Personal_Pin_Used": "int64",
+        "Avg_Call_Duration": "float64",
+        "Avg_Data_Usage": "float64",
+        "Avg_Cost": "float64",
+        "Plan_Type_prepaid": "bool"
+      },
+      "checks": [
+        "XZ read succeeds",
+        "Fraud labels are 0 and 1",
+        "both labels support stratified split",
+        "Plan_Type has known non-null categories",
+        "all preprocessed features numeric and finite"
+      ],
+      "schema_validation": "pass",
+      "storage": {
+        "uri": "s3://mybucket/data/telecom_revass_data.csv.xz",
+        "status": "uploaded_verified",
+        "verified_at": "2026-10-26T21:41:57.210667+00:00",
+        "remote_size_bytes": 62489272,
+        "remote_sha256": "87da56b376dd01e8dd2aceeb3ee024b081f498a19032178b8285d714de8878ce"
+      }
+    },
+    {
+      "model": "churn",
+      "dataset_repo": "Omer1234567/telco-churn-synthetic",
+      "revision": "69a99a035871d404e76b3d3c241b149bf9f497a8",
+      "file": "synthetic_customer_data_evenly_distributed.csv",
+      "canonical_download_url": "https://huggingface.co/datasets/Omer1234567/telco-churn-synthetic/resolve/69a99a035871d404e76b3d3c241b149bf9f497a8/synthetic_customer_data_evenly_distributed.csv?download=true",
+      "local_path": "/home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/datasets/synthetic_customer_data_evenly_distributed.csv",
+      "size_bytes": 14079303,
+      "sha256": "b1cf55ae76149b912fb24b2950d9b2bd9214eae20bd6c5e4897095f9df6bf1f2",
+      "matches_hub_lfs_sha256": true,
+      "downloaded_at": "2026-10-26T21:15:58.282883+00:00",
+      "license": null,
+      "conversion_required": false,
+      "source_page": "https://huggingface.co/datasets/Omer1234567/telco-churn-synthetic",
+      "license_metadata": "not declared in repository metadata; no README present",
+      "pipeline_source": "/home/yelias/Desktop/Projects/telco-revenue-assurance-agent/pipeline/03-telco-churn-kfp-pipeline.py",
+      "pipeline_source_sha256": "1d808ce52a0a2e4ed3a4207ee630bbfd54afd134f13c1364bac4cb53028688dd",
+      "rows": 112552,
+      "columns": [
+        "CustomerID",
+        "BillingCycleStart",
+        "BillingCycleEnd",
+        "CallMinutes",
+        "DataUsageGB",
+        "SMSCount",
+        "InternetSessions",
+        "TotalBillAmount",
+        "PaymentStatus",
+        "PaymentDueDate",
+        "LateFee",
+        "DiscountsApplied",
+        "SupportInteractionCount",
+        "LastInteractionDate",
+        "PrimaryIssueType",
+        "ResolutionTimeMinutes",
+        "SatisfactionScore",
+        "EscalationFlag",
+        "SupportChannel",
+        "HasChurned"
+      ],
+      "dtypes": {
+        "CustomerID": "str",
+        "BillingCycleStart": "str",
+        "BillingCycleEnd": "str",
+        "CallMinutes": "int64",
+        "DataUsageGB": "float64",
+        "SMSCount": "int64",
+        "InternetSessions": "int64",
+        "TotalBillAmount": "float64",
+        "PaymentStatus": "str",
+        "PaymentDueDate": "str",
+        "LateFee": "float64",
+        "DiscountsApplied": "float64",
+        "SupportInteractionCount": "int64",
+        "LastInteractionDate": "str",
+        "PrimaryIssueType": "str",
+        "ResolutionTimeMinutes": "int64",
+        "SatisfactionScore": "int64",
+        "EscalationFlag": "bool",
+        "SupportChannel": "str",
+        "HasChurned": "bool"
+      },
+      "missing_values": {
+        "LastInteractionDate": 18719,
+        "PrimaryIssueType": 18719,
+        "SupportChannel": 18719
+      },
+      "format": "CSV",
+      "target": "HasChurned",
+      "label_counts": {
+        "False": 84775,
+        "True": 27777
+      },
+      "mapped_categories": {
+        "PaymentStatus": [
+          "Paid",
+          "Partial",
+          "Unpaid"
+        ],
+        "PrimaryIssueType": [
+          "",
+          "Billing",
+          "Service Quality",
+          "Technical"
+        ],
+        "SupportChannel": [
+          "",
+          "Chat",
+          "Email",
+          "Phone"
+        ]
+      },
+      "excluded_columns": [
+        "HasChurned",
+        "BillingCycleStart",
+        "BillingCycleEnd",
+        "PaymentDueDate",
+        "LastInteractionDate",
+        "CustomerID"
+      ],
+      "feature_order_from_source_preprocessing": [
+        "CallMinutes",
+        "DataUsageGB",
+        "SMSCount",
+        "InternetSessions",
+        "TotalBillAmount",
+        "PaymentStatus",
+        "LateFee",
+        "DiscountsApplied",
+        "SupportInteractionCount",
+        "PrimaryIssueType",
+        "ResolutionTimeMinutes",
+        "SatisfactionScore",
+        "EscalationFlag",
+        "SupportChannel"
+      ],
+      "feature_width": 14,
+      "feature_dtypes": {
+        "CallMinutes": "int64",
+        "DataUsageGB": "float64",
+        "SMSCount": "int64",
+        "InternetSessions": "int64",
+        "TotalBillAmount": "float64",
+        "PaymentStatus": "float64",
+        "LateFee": "float64",
+        "DiscountsApplied": "float64",
+        "SupportInteractionCount": "int64",
+        "PrimaryIssueType": "float64",
+        "ResolutionTimeMinutes": "int64",
+        "SatisfactionScore": "int64",
+        "EscalationFlag": "bool",
+        "SupportChannel": "float64"
+      },
+      "checks": [
+        "all required source columns present",
+        "categorical values all covered by unchanged mappings",
+        "all final features numeric and finite",
+        "target non-null and has multiple classes"
+      ],
+      "schema_validation": "pass",
+      "storage": {
+        "uri": "s3://mybucket/data/synthetic_customer_data_evenly_distributed.csv",
+        "status": "uploaded_verified",
+        "verified_at": "2026-10-26T21:42:26.556061+00:00",
+        "remote_size_bytes": 14079303,
+        "remote_sha256": "b1cf55ae76149b912fb24b2950d9b2bd9214eae20bd6c5e4897095f9df6bf1f2"
+      }
+    },
+    {
+      "model": "qoe",
+      "dataset_repo": "fenar/starlink",
+      "revision": "27941f466ccf12a15f91d22b5dd2247806b767d1",
+      "file": "starlink_data.csv",
+      "canonical_download_url": "https://huggingface.co/datasets/fenar/starlink/resolve/27941f466ccf12a15f91d22b5dd2247806b767d1/starlink_data.csv?download=true",
+      "local_path": "/home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/datasets/starlink_data.csv",
+      "size_bytes": 12018472,
+      "sha256": "362a56b578287a45baf6066159f68ac6c133d8088c94e6b52c3500ed57f004f9",
+      "matches_hub_lfs_sha256": true,
+      "downloaded_at": "2026-10-26T21:15:52.779684+00:00",
+      "license": "apache-2.0",
+      "conversion_required": false,
+      "source_page": "https://huggingface.co/datasets/fenar/starlink",
+      "license_metadata": "apache-2.0",
+      "pipeline_source": "/home/yelias/Desktop/Projects/telco-revenue-assurance-agent/pipeline/starlink_qoe_pipeline.py",
+      "pipeline_source_sha256": "39f27c1bedc10fc2c5035bad2859654937b838a82e57b9df1f39ca8b111127a1",
+      "rows": 100000,
+      "columns": [
+        "latitude",
+        "longitude",
+        "elevation_m",
+        "season",
+        "weather",
+        "visible_satellites",
+        "serving_satellites",
+        "signal_loss_db",
+        "download_throughput_bps",
+        "upload_throughput_bps",
+        "packet_loss",
+        "qoe_score"
+      ],
+      "dtypes": {
+        "latitude": "float64",
+        "longitude": "float64",
+        "elevation_m": "float64",
+        "season": "str",
+        "weather": "str",
+        "visible_satellites": "int64",
+        "serving_satellites": "int64",
+        "signal_loss_db": "float64",
+        "download_throughput_bps": "float64",
+        "upload_throughput_bps": "float64",
+        "packet_loss": "float64",
+        "qoe_score": "float64"
+      },
+      "missing_values": {},
+      "format": "CSV",
+      "target": "qoe_score",
+      "categorical_values": {
+        "season": [
+          "Fall",
+          "Spring",
+          "Summer",
+          "Winter"
+        ],
+        "weather": [
+          "Clear",
+          "Dense_Fog",
+          "Heavy_Rain",
+          "Light_Rain",
+          "Moderate_Rain",
+          "Rain",
+          "Snow"
+        ]
+      },
+      "numeric_ranges": {
+        "latitude": {
+          "min": -57.36203005335937,
+          "max": 59.60642662712737
+        },
+        "longitude": {
+          "min": -178.16918960687283,
+          "max": 173.38179283217568
+        },
+        "elevation_m": {
+          "min": -227.8645782470703,
+          "max": 4387.0009765625
+        },
+        "visible_satellites": {
+          "min": 12.0,
+          "max": 19.0
+        },
+        "serving_satellites": {
+          "min": 2.0,
+          "max": 5.0
+        },
+        "signal_loss_db": {
+          "min": 0.5045105289459229,
+          "max": 1.8774001953125
+        },
+        "qoe_score": {
+          "min": 53.87,
+          "max": 96.49
+        }
+      },
+      "feature_order_from_source_preprocessing": [
+        "latitude",
+        "longitude",
+        "elevation_m",
+        "visible_satellites",
+        "serving_satellites",
+        "signal_loss_db",
+        "season_encoded",
+        "weather_encoded"
+      ],
+      "feature_width": 8,
+      "checks": [
+        "all required source columns present",
+        "season/weather non-null strings",
+        "numeric input features and target finite",
+        "QoE target in 0..100"
+      ],
+      "schema_validation": "pass",
+      "storage": {
+        "uri": "s3://mybucket/data/starlink_data.csv",
+        "status": "uploaded_verified",
+        "verified_at": "2026-10-26T21:42:36.005134+00:00",
+        "remote_size_bytes": 12018472,
+        "remote_sha256": "362a56b578287a45baf6066159f68ac6c133d8088c94e6b52c3500ed57f004f9"
+      }
+    }
+  ]
+}

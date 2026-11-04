@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:telco-revenue-assurance:qoe-inference:1",
+  "title": "KServe V2 Starlink QoE inference request",
+  "description": "Request schema for the supplied ONNX QoE transformer served by MLServer under KServe V2.",
+  "$defs": {
+    "PositiveDimension": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Positive tensor dimension."
+    },
+    "InputTensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "shape", "datatype", "data"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "KServe tensor name read from deployed ONNX model metadata; the supplied pipeline exports input."
+        },
+        "shape": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/PositiveDimension", "description": "Batch customer/location count, at most 100." },
+            { "type": "integer", "const": 1, "description": "Fixed singleton axis from the trained tensor shape." },
+            { "type": "integer", "const": 8, "description": "Eight trained QoE features." }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3,
+          "description": "Exact ONNX V2 input shape [batch, 1, 8]."
+        },
+        "datatype": {
+          "type": "string",
+          "const": "FP32",
+          "description": "KServe V2 FP32 input tensor type."
+        },
+        "data": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "type": "array",
+              "minItems": 8,
+              "maxItems": 8,
+              "items": { "type": "number", "description": "One scaled FP32 feature value." },
+              "description": "Feature order: latitude, longitude, elevation_m, visible_satellites, serving_satellites, signal_loss_db, season_encoded, weather_encoded."
+            },
+            "description": "One singleton-axis feature tensor for a customer/location."
+          },
+          "description": "Data shape is [batch, 1, 8] and aligns with the request shape."
+        }
+      },
+      "description": "QoE tensor after StandardScaler and season/weather label encoding using the external preprocessing sidecars."
+    },
+    "InferenceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "inputs"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Caller-generated request correlation identifier.",
+          "examples": ["qoe-req-00421"]
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/InputTensor" },
+          "description": "Exactly one [batch, 1, 8] tensor."
+        }
+      }
+    },
+    "OutputTensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "shape", "datatype", "data"],
+      "properties": {
+        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "KServe output tensor name reported by the ONNX metadata; the supplied pipeline exports output."
+        },
+        "shape": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/PositiveDimension", "description": "Number of QoE scores; equals input batch size." },
+            { "type": "integer", "const": 1, "description": "One score from the transformer's final linear layer." }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Two-dimensional output shape [batch, 1] exported by the supplied Starlink transformer."
+        },
+        "datatype": {
+          "type": "string",
+          "enum": ["FP32", "FP64"],
+          "description": "ONNX metadata supplies the numeric score datatype; prediction-tools normalizes it to a numeric score. Exact artifact metadata is an open question."
+        },
+        "data": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "One QoE score on the model's 0–100 scale."
+          },
+          "description": "Flattened KServe tensor data: one numeric score per input customer/location, preserving input order. The data length equals the batch dimension even though shape is [batch, 1]."
+        }
+      }
+    },
+    "InferenceResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "model_name", "model_version", "outputs"],
+      "properties": {
+        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+        "id": { "type": "string", "description": "Request ID echoed by the inference server." },
+        "model_name": { "type": "string", "const": "starlink-qoe", "description": "Configured KServe model name." },
+        "model_version": { "type": "string", "description": "Served artifact version, recorded with prediction results." },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/OutputTensor" },
+          "description": "Exactly one score-output tensor."
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/InferenceRequest",
+  "x-response-schema": "#/$defs/InferenceResponse",
+  "x-kserve-v2-route": "/v2/models/starlink-qoe/infer",
+  "x-contract-guarantees": {
+    "side_effects": "Stateless inference; the model service does not mutate application database rows.",
+    "errors": "Invalid tensor, model not ready, invalid model name, missing preprocessing sidecar, and storage errors map to typed KServe errors.",
+    "timeouts_retries": "Prediction-tools sets a 30 second per-batch deadline and retries one transient readiness/5xx failure after 500 milliseconds; invalid tensors and missing preprocessing artifacts are not retried.",
+    "ordering": "Exactly one scalar score in [0, 100] is returned per input row and input order is preserved.",
+    "versioning": "KServe V2 schema, ordered eight-feature preprocessing manifest, scaler, label encoders, and ONNX artifact are versioned together."
+  },
+  "x-preprocessing": {
+    "ordered_features": ["latitude", "longitude", "elevation_m", "visible_satellites", "serving_satellites", "signal_loss_db", "season_encoded", "weather_encoded"],
+    "transform": "Read scaler.joblib and label_encoders.joblib from the configured external S3 artifact prefix; apply StandardScaler and season/weather encoding before constructing the tensor.",
+    "score_range": [0, 100],
+    "data_domain": "The supplied model is trained on Starlink satellite internet samples; telecom QoE data is a future enhancement.",
+    "unresolved_artifact_metadata": "Confirm the deployed model version and tensor metadata against the artifact manifest. The supplied pipeline exports input/output tensor names input/output and stores the fitted sidecars under artifacts/scaler.joblib and artifacts/label_encoders.joblib."
+  }
+}

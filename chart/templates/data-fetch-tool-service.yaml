@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.dataFetchTool.serviceName }}
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "data-fetch-tool") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.dataFetchTool.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "telco.componentSelector" (dict "root" . "component" "data-fetch-tool") | nindent 4 }}

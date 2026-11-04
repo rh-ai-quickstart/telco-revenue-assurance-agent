@@ -1,0 +1,43 @@
+{
+  "status": "pass",
+  "observed_at": "2026-10-26T23:38:21.407535+00:00",
+  "tls_chain_and_hostname_verified": true,
+  "anonymous_metadata_and_inference_status": 401,
+  "authorized_versioned_metadata_and_inference_status": 200,
+  "rows_per_model": 100,
+  "models": {
+    "churn": {
+      "model_name": "churn-prediction",
+      "model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+      "datatype": "FP64",
+      "shape": [
+        100,
+        1
+      ],
+      "maximum_absolute_difference_vs_local": 0.0
+    },
+    "fraud": {
+      "model_name": "fraud-prediction",
+      "model_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7",
+      "datatype": "INT64",
+      "shape": [
+        100,
+        1
+      ],
+      "maximum_absolute_difference_vs_local": 0
+    },
+    "qoe": {
+      "model_name": "starlink-qoe",
+      "model_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+      "datatype": "FP32",
+      "shape": [
+        100,
+        1
+      ],
+      "maximum_absolute_difference_vs_local": 1.52587890625e-05
+    }
+  },
+  "application_writes": 0,
+  "diagnostic_resources_cleaned_up": true,
+  "full_application_M02_status": "not_complete; model serving/auth preflight only, MCP path pending application image rollout"
+}

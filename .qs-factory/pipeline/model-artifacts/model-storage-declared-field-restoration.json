@@ -1,0 +1,67 @@
+{
+  "observed_at": "2026-10-26T23:35:46.539518+00:00",
+  "reason": "Restore exact Helm-declared fields removed by previously invalid connection admission; unchanged-field Helm upgrade did not reintroduce them.",
+  "health_attempt": 2,
+  "patches": [
+    {
+      "name": "churn-prediction",
+      "patch": {
+        "spec": {
+          "predictor": {
+            "model": {
+              "storage": {
+                "key": "telco-churn-model-storage",
+                "path": "models/churn-serving/1ea4bc0e-f1c7-44af-8d80-58dc53eaa805"
+              }
+            }
+          }
+        }
+      },
+      "retained_storage": {
+        "key": "telco-churn-model-storage",
+        "path": "models/churn-serving/1ea4bc0e-f1c7-44af-8d80-58dc53eaa805"
+      },
+      "generation": 3
+    },
+    {
+      "name": "fraud-prediction",
+      "patch": {
+        "spec": {
+          "predictor": {
+            "model": {
+              "storage": {
+                "key": "telco-fraud-model-storage",
+                "path": "models/fraud"
+              }
+            }
+          }
+        }
+      },
+      "retained_storage": {
+        "key": "telco-fraud-model-storage",
+        "path": "models/fraud"
+      },
+      "generation": 3
+    },
+    {
+      "name": "starlink-qoe",
+      "patch": {
+        "spec": {
+          "predictor": {
+            "model": {
+              "storage": {
+                "key": "telco-qoe-model-storage",
+                "path": "models/starlink-qoe"
+              }
+            }
+          }
+        }
+      },
+      "retained_storage": {
+        "key": "telco-qoe-model-storage",
+        "path": "models/starlink-qoe"
+      },
+      "generation": 3
+    }
+  ]
+}

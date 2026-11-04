@@ -1,0 +1,52 @@
+{
+  "source_repository": "gitlab-telco/telco-revenue-assurance-agent",
+  "source_commit": "3037c340c5a4a27ae53f95b9146562c12c985c79",
+  "assets": [
+    {
+      "path": "pipeline/01-telco-revass-randomforest-pipeline.py",
+      "sha256": "cb4bb95e6f3b049209a47c166778f36daae1252bb053bf970f3920bd628a10a7"
+    },
+    {
+      "path": "pipeline/03-telco-churn-kfp-pipeline.py",
+      "sha256": "1d808ce52a0a2e4ed3a4207ee630bbfd54afd134f13c1364bac4cb53028688dd"
+    },
+    {
+      "path": "pipeline/starlink_qoe_pipeline.py",
+      "sha256": "39f27c1bedc10fc2c5035bad2859654937b838a82e57b9df1f39ca8b111127a1"
+    },
+    {
+      "path": "pipeline/starlink_qoe_pipeline.yaml",
+      "sha256": "d76a1fdcc837ceb7d06ce2fc78ab00ff3fed4e4f4e4323e497e8a361e5f9fce4"
+    },
+    {
+      "path": "serving/churn-inferenceservice.yaml",
+      "sha256": "fa684b4d1c44481a8f55d5d2ccbfbabc806e2d5d4fdf7ba9d446157b24210ecd"
+    },
+    {
+      "path": "serving/churn-servingruntime.yaml",
+      "sha256": "c0c16ae789952b76152d41dfe3b7d2a19c1064169d69770bb5c7011fb5278bc4"
+    },
+    {
+      "path": "serving/rafm-inferenceservice.yaml",
+      "sha256": "e0fd78f5feb2339af682d6c88875d4b331bb6a98f8d8d6f90d4a44c7f751742a"
+    },
+    {
+      "path": "serving/rafm-servingruntime.yaml",
+      "sha256": "388c2dcc0041daf32140abf22680b8590b4edce0ba30994bc0b8dd6d68834986"
+    },
+    {
+      "path": "serving/starlink-qoe-inferenceservice.yaml",
+      "sha256": "447d8c8d841e7e9fef6fc0b74e0553fb43cce7703a13daddd247be81a8871391"
+    },
+    {
+      "path": "serving/starlink-qoe-servingruntime.yaml",
+      "sha256": "69d98d8d2e7d90721ea5afb2cd1b02618c910df80ad903890a7cd7b71218508c"
+    }
+  ],
+  "integration_notes": [
+    "Pipeline sources and serving snapshots are copied byte-for-byte. Pipeline execution submits training runs and is never part of local verification.",
+    "Helm templates preserve source serving behavior with configurable names, namespace, existing data connections and optional explicit storage URIs.",
+    "Helm omits exported cluster metadata and retains the approved authenticated, namespace-local model access policy.",
+    "Datasets, trained models, fitted preprocessing artifacts, exact feature manifests, populated PVC and authentication Secrets remain external deployment inputs."
+  ]
+}

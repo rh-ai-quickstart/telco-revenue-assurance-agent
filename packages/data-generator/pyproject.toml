@@ -1,0 +1,28 @@
+[project]
+name = "telco-data-generator"
+version = "0.1.0"
+description = "Finite Hugging Face source-data loader for the telco revenue-assurance demo."
+requires-python = ">=3.12"
+dependencies = [
+  "asyncpg>=0.30,<1",
+  "datasets>=3.6,<5",
+  "huggingface-hub>=0.29,<2",
+  "sqlalchemy[asyncio]>=2.0.36,<3",
+  "telco-qs-common",
+]
+
+[project.scripts]
+data-generator = "data_generator.main:main"
+
+[build-system]
+requires = ["hatchling>=1.26,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/data_generator"]
+
+[tool.uv.sources]
+telco-qs-common = { workspace = true }
+
+[tool.ruff]
+extend = "../../packages/configs/ruff.toml"

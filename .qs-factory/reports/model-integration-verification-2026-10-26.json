@@ -1,0 +1,290 @@
+{
+  "verified_at": "2026-10-26T15:33:19.034783+00:00",
+  "results": [
+    {
+      "command": "make lint",
+      "criteria": [
+        "global-ac-1"
+      ],
+      "exit_code": 2,
+      "duration_seconds": 0.06,
+      "output": "uv run ruff check --config packages/configs/ruff.toml packages/\nE501 Line too long (103 > 100)\n   --> packages/api/src/api/services/ogx_client.py:121:101\n    |\n119 |     if conversation_id is not None and not isinstance(conversation_id, str):\n120 |         raise ValueError(\"OGX response conversation is invalid.\")\n121 |     if not isinstance(metadata, Mapping) or metadata.get(OGX_SESSION_METADATA_KEY) != expected_session:\n    |                                                                                                     ^^^\n122 |         raise ValueError(\"OGX response session metadata does not match.\")\n123 |     if body.get(\"previous_response_id\") != expected_previous_response_id:\n    |\n\nFound 1 error.\nmake: *** [Makefile:23: lint] Error 1\n"
+    },
+    {
+      "command": "make test",
+      "criteria": [
+        "global-ac-2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 11.81,
+      "output": "........................................................................ [ 48%]\n........................................................................ [ 97%]\n...                                                                      [100%]\n147 passed in 5.97s\nturbo 2.3.3\n\n\u2022 Packages in scope: ui\n\u2022 Running test in 1 packages\n\u2022 Remote caching disabled\nui:test: cache miss, executing bf3bbaff8c242405\nui:test: \nui:test: > ui@0.1.0 test /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\nui:test: > vitest run\nui:test: \nui:test: \nui:test:  RUN  v2.1.8 /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\nui:test: \nui:test:  \u2713 src/routes/dashboard.test.tsx (4 tests) 1406ms\nui:test:    \u2713 revenue assurance dashboard > replays a transient chat failure with the same request ID and message 1061ms\nui:test: \nui:test:  Test Files  1 passed (1)\nui:test:       Tests  4 passed (4)\nui:test:    Start at  17:32:29\nui:test:    Duration  2.83s (transform 226ms, setup 0ms, collect 395ms, tests 1.41s, environment 452ms, prepare 73ms)\nui:test: \n\n Tasks:    1 successful, 1 total\nCached:    0 cached, 1 total\n  Time:    3.66s \n\n WARNING  no output files found for task ui#test. Please check your `outputs` key in `turbo.json`\n"
+    },
+    {
+      "command": "helm lint chart/ && helm template chart/ >/dev/null",
+      "criteria": [
+        "global-ac-3",
+        "database-ac-1",
+        "database-connection:provider"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.24,
+      "output": "==> Linting chart/\n[INFO] Chart.yaml: icon is recommended\n\n1 chart(s) linted, 0 chart(s) failed\n"
+    },
+    {
+      "command": "uv run pytest packages/api/tests/test_openapi_contract.py packages/api/tests/test_ogx_client.py packages/api/tests/test_mcp_clients.py packages/api/tests/test_schema_parity.py packages/prediction-tools/tests/test_mcp_contract.py packages/prediction-tools/tests/test_kserve_v2_contract.py packages/prediction-tools/tests/test_data_fetch_client.py packages/data-fetch-tool/tests/test_mcp_contract.py packages/data-fetch-tool/tests/test_schema_compat.py packages/data-generator/tests/test_generator_schema_compat.py -q && pnpm --filter ui run generate:types && pnpm --filter ui run typecheck && helm lint chart/",
+      "criteria": [
+        "global-ac-4"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 7.72,
+      "output": "........................................................................ [ 80%]\n..................                                                       [100%]\n90 passed in 2.29s\n\n> ui@0.1.0 generate:types /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\n> openapi-typescript ../../contracts/openapi.yaml -o src/api/types.ts && prettier --config ../../packages/configs/prettier.json --write src/api/types.ts\n\n\u2728 openapi-typescript 7.5.2\n\ud83d\ude80 ../../contracts/openapi.yaml \u2192 src/api/types.ts [71.2ms]\nsrc/api/types.ts 180ms\n\n> ui@0.1.0 typecheck /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\n> tsc --noEmit\n\n==> Linting chart/\n[INFO] Chart.yaml: icon is recommended\n\n1 chart(s) linted, 0 chart(s) failed\n"
+    },
+    {
+      "command": "pnpm --filter ui run generate:types && git diff --exit-code packages/ui/src/api/types.ts",
+      "criteria": [
+        "frontend-ac-1"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 1.47,
+      "output": "\n> ui@0.1.0 generate:types /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\n> openapi-typescript ../../contracts/openapi.yaml -o src/api/types.ts && prettier --config ../../packages/configs/prettier.json --write src/api/types.ts\n\n\u2728 openapi-typescript 7.5.2\n\ud83d\ude80 ../../contracts/openapi.yaml \u2192 src/api/types.ts [57.9ms]\nsrc/api/types.ts 103ms\n"
+    },
+    {
+      "command": "pnpm --filter ui exec vitest run",
+      "criteria": [
+        "frontend-ac-2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 4.63,
+      "output": "\n RUN  v2.1.8 /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\n\n \u2713 src/routes/dashboard.test.tsx (4 tests) 1499ms\n   \u2713 revenue assurance dashboard > replays a transient chat failure with the same request ID and message 1054ms\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  17:32:42\n   Duration  3.63s (transform 314ms, setup 0ms, collect 434ms, tests 1.50s, environment 844ms, prepare 218ms)\n\n"
+    },
+    {
+      "command": "uv run pytest packages/api/tests/test_openapi_contract.py -q",
+      "criteria": [
+        "backend-ac-1",
+        "frontend-api:provider"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 2.54,
+      "output": "..                                                                       [100%]\n2 passed in 1.55s\n"
+    },
+    {
+      "command": "uv run pytest packages/api/tests/test_scoring.py -q",
+      "criteria": [
+        "backend-ac-2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 2.0,
+      "output": "........                                                                 [100%]\n8 passed in 1.18s\n"
+    },
+    {
+      "command": "uv run pytest packages/api/tests/test_chat_idempotency.py -q",
+      "criteria": [
+        "backend-ac-3"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.85,
+      "output": "..........                                                               [100%]\n10 passed in 0.38s\n"
+    },
+    {
+      "command": "helm lint chart/",
+      "criteria": [
+        "agent-orchestration-ac-1",
+        "llm-serving-ac-1",
+        "churn-model-serving-ac-1",
+        "fraud-model-serving-ac-1",
+        "qoe-model-serving-ac-1",
+        "ogx-responses:provider",
+        "llm-api:provider",
+        "llm-api:consumer",
+        "churn-inference:provider",
+        "fraud-inference:provider",
+        "qoe-inference:provider"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.15,
+      "output": "==> Linting chart/\n[INFO] Chart.yaml: icon is recommended\n\n1 chart(s) linted, 0 chart(s) failed\n"
+    },
+    {
+      "command": "uv run pytest packages/prediction-tools/tests/test_mcp_contract.py -q",
+      "criteria": [
+        "prediction-tools-ac-1",
+        "prediction-mcp:provider"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 2.33,
+      "output": "......                                                                   [100%]\n6 passed in 1.52s\n"
+    },
+    {
+      "command": "uv run pytest packages/prediction-tools/tests/test_kserve_v2_contract.py -q",
+      "criteria": [
+        "prediction-tools-ac-2",
+        "model-import-ac-2",
+        "churn-inference:consumer",
+        "fraud-inference:consumer",
+        "qoe-inference:consumer"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.79,
+      "output": ".........................................                                [100%]\n41 passed in 0.38s\n"
+    },
+    {
+      "command": "uv run pytest packages/data-fetch-tool/tests/test_mcp_contract.py packages/data-fetch-tool/tests/test_read_only_access.py -q",
+      "criteria": [
+        "data-fetch-tool-ac-1"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 2.37,
+      "output": "........                                                                 [100%]\n8 passed in 1.53s\n"
+    },
+    {
+      "command": "uv run pytest packages/data-generator/tests/test_transform.py -q",
+      "criteria": [
+        "data-generator-ac-1"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 1.62,
+      "output": "......                                                                   [100%]\n6 passed in 1.04s\n"
+    },
+    {
+      "command": "uv run pytest packages/data-generator/tests/test_idempotency.py -q",
+      "criteria": [
+        "data-generator-ac-2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 1.78,
+      "output": ".                                                                        [100%]\n1 passed in 1.00s\n"
+    },
+    {
+      "command": "make verify-model-assets",
+      "criteria": [
+        "model-import-ac-1"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.44,
+      "output": "uv run --frozen python scripts/verify_model_assets.py --helm \"helm\"\nPASS: 10 source hashes and Python/YAML parses (source commit 3037c340c5a4a27ae53f95b9146562c12c985c79)\nPASS: source runtime/predictor behavior with default data connections\nPASS: explicit URI overrides, namespace isolation, and internal authentication\nNo pipelines executed; no cluster contact; trained artifacts remain external.\n"
+    },
+    {
+      "command": "pnpm --filter ui run generate:types && pnpm --filter ui run typecheck",
+      "criteria": [
+        "frontend-api:consumer"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 5.05,
+      "output": "\n> ui@0.1.0 generate:types /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\n> openapi-typescript ../../contracts/openapi.yaml -o src/api/types.ts && prettier --config ../../packages/configs/prettier.json --write src/api/types.ts\n\n\u2728 openapi-typescript 7.5.2\n\ud83d\ude80 ../../contracts/openapi.yaml \u2192 src/api/types.ts [70.6ms]\nsrc/api/types.ts 196ms\n\n> ui@0.1.0 typecheck /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\n> tsc --noEmit\n\n"
+    },
+    {
+      "command": "uv run pytest packages/api/tests/test_ogx_client.py -q",
+      "criteria": [
+        "ogx-responses:consumer"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.94,
+      "output": "........................                                                 [100%]\n24 passed in 0.41s\n"
+    },
+    {
+      "command": "helm lint chart/ && uv run pytest packages/api/tests/test_mcp_clients.py -q",
+      "criteria": [
+        "prediction-mcp:consumer"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 1.9,
+      "output": "==> Linting chart/\n[INFO] Chart.yaml: icon is recommended\n\n1 chart(s) linted, 0 chart(s) failed\n....                                                                     [100%]\n4 passed in 0.97s\n"
+    },
+    {
+      "command": "uv run pytest packages/data-fetch-tool/tests/test_mcp_contract.py -q",
+      "criteria": [
+        "data-fetch-mcp:provider"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 2.42,
+      "output": "....                                                                     [100%]\n4 passed in 1.47s\n"
+    },
+    {
+      "command": "uv run pytest packages/prediction-tools/tests/test_data_fetch_client.py packages/api/tests/test_mcp_clients.py -q && helm lint chart/",
+      "criteria": [
+        "data-fetch-mcp:consumer"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 2.38,
+      "output": ".......                                                                  [100%]\n7 passed in 1.34s\n==> Linting chart/\n[INFO] Chart.yaml: icon is recommended\n\n1 chart(s) linted, 0 chart(s) failed\n"
+    },
+    {
+      "command": "uv run pytest packages/api/tests/test_database_configuration.py packages/data-fetch-tool/tests/test_database_config.py packages/data-generator/tests/test_generator_database_config.py -q && helm lint chart/",
+      "criteria": [
+        "database-connection:consumer"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 3.47,
+      "output": ".............                                                            [100%]\n13 passed in 2.13s\n==> Linting chart/\n[INFO] Chart.yaml: icon is recommended\n\n1 chart(s) linted, 0 chart(s) failed\n"
+    },
+    {
+      "command": "uv run pytest packages/api/tests/test_schema_parity.py -q",
+      "criteria": [
+        "database-schema:provider"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.75,
+      "output": "...                                                                      [100%]\n3 passed in 0.34s\n"
+    },
+    {
+      "command": "uv run pytest packages/data-fetch-tool/tests/test_schema_compat.py packages/data-generator/tests/test_generator_schema_compat.py -q",
+      "criteria": [
+        "database-schema:consumer"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.7,
+      "output": "...                                                                      [100%]\n3 passed in 0.27s\n"
+    },
+    {
+      "command": "Compare regenerated UI types with session-start content",
+      "criteria": [
+        "ui-types-byte-parity"
+      ],
+      "exit_code": 0,
+      "output": "before=7cf4b615ffbbac6ee9f1bdbc690c8e0fd1f868d3da0abb7f461ef104de5f6b31 after=7cf4b615ffbbac6ee9f1bdbc690c8e0fd1f868d3da0abb7f461ef104de5f6b31"
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "output": "uv run ruff check --config packages/configs/ruff.toml packages/\nAll checks passed!\nfind packages -type d \\( -name .venv -o -name .tox -o -name node_modules \\) -prune -o -type f -name '*.py' -print0 | xargs -0 uv run ruff format --check --config packages/configs/ruff.toml\n60 files already formatted\nuv run mypy --config-file packages/configs/mypy.ini packages/\nSuccess: no issues found in 60 source files\n\u2022 Packages in scope: ui\n\u2022 Running lint, typecheck in 1 packages\n\u2022 Remote caching disabled\nui:lint: cache miss, executing 4d4e5976a76517d7\nui:typecheck: cache miss, executing 84d83f4f3896bdfb\nui:typecheck: \nui:typecheck: > ui@0.1.0 typecheck /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\nui:typecheck: > tsc --noEmit\nui:typecheck: \nui:lint: \nui:lint: > ui@0.1.0 lint /home/yelias/Desktop/Projects/telco-revenue-assurance-agent/packages/ui\nui:lint: > eslint src --config ../../packages/configs/eslint.config.mjs --max-warnings 0\nui:lint: \n\n Tasks:    2 successful, 2 total\nCached:    0 cached, 2 total\n  Time:    2.556s \n\npnpm exec prettier --config packages/configs/prettier.json --check .pre-commit-config.yaml CONVENTIONS.md package.json pnpm-workspace.yaml turbo.json 'packages/**/*.{ts,tsx,js,mjs,cjs,jsx,json,yml,yaml,md}'\nChecking formatting...\nAll matched files use Prettier code style!\nturbo 2.3.3\n\n",
+      "reason": "Recheck after AST-identical formatting of three existing API files."
+    },
+    {
+      "command": "uv run pytest packages/api/tests/test_ogx_client.py packages/api/tests/test_chat_idempotency.py -q",
+      "exit_code": 0,
+      "output": "..................................                                       [100%]\n34 passed in 0.47s\n",
+      "reason": "Recheck after AST-identical formatting of three existing API files."
+    }
+  ],
+  "collection": {
+    "command": ".venv/bin/pytest --collect-only -q packages",
+    "exit_code": 0,
+    "by_package": {
+      "api": 56,
+      "common": 15,
+      "data-fetch-tool": 14,
+      "data-generator": 12,
+      "prediction-tools": 50
+    },
+    "output": "packages/api/tests/test_chat_idempotency.py::test_completed_request_replays_exact_persisted_response_after_service_recreation\npackages/api/tests/test_chat_idempotency.py::test_changed_message_for_same_session_and_request_id_conflicts\npackages/api/tests/test_chat_idempotency.py::test_in_progress_duplicate_does_not_invoke_ogx_again\npackages/api/tests/test_chat_idempotency.py::test_ambiguous_upstream_failure_keeps_claim_and_suppresses_retry\npackages/api/tests/test_chat_idempotency.py::test_explicit_rejection_persists_claim_and_allows_same_content_retry\npackages/api/tests/test_chat_idempotency.py::test_changed_content_after_explicit_rejection_conflicts\npackages/api/tests/test_chat_idempotency.py::test_concurrent_duplicate_during_ogx_call_gets_retryable_unavailable\npackages/api/tests/test_chat_idempotency.py::test_distinct_request_for_active_session_uses_nonblocking_try_lock\npackages/api/tests/test_chat_idempotency.py::test_followup_uses_last_completed_response_after_service_recreation\npackages/api/tests/test_chat_idempotency.py::test_rejected_retry_keeps_last_completed_history\npackages/api/tests/test_database_configuration.py::test_async_and_sync_dsn_conversion_never_double_prefixes_driver\npackages/api/tests/test_database_configuration.py::test_database_url_rejects_non_postgresql_schemes[async_database_url]\npackages/api/tests/test_database_configuration.py::test_database_url_rejects_non_postgresql_schemes[sync_database_url]\npackages/api/tests/test_database_configuration.py::test_missing_required_settings_fail_at_startup_not_module_import\npackages/api/tests/test_database_configuration.py::test_complete_settings_accept_postgresql_and_bounded_batch_size\npackages/api/tests/test_mcp_clients.py::test_streamable_http_adapter_returns_only_structured_tool_result\npackages/api/tests/test_mcp_clients.py::test_data_fetch_result_is_validated_against_public_consumer_model\npackages/api/tests/test_mcp_clients.py::test_retryable_typed_tool_failure_retries_once_and_returns_result\npackages/api/tests/test_mcp_clients.py::test_nonretryable_typed_tool_failure_maps_to_safe_upstream_error\npackages/api/tests/test_ogx_client.py::test_responses_request_uses_logical_session_metadata_and_maps_final_text_only\npackages/api/tests/test_ogx_client.py::test_invalid_required_response_fields_are_rejected[object-response.v2]\npackages/api/tests/test_ogx_client.py::test_invalid_required_response_fields_are_rejected[status-in_progress]\npackages/api/tests/test_ogx_client.py::test_invalid_required_response_fields_are_rejected[created_at-True]\npackages/api/tests/test_ogx_client.py::test_invalid_required_response_fields_are_rejected[created_at--1]\npackages/api/tests/test_ogx_client.py::test_invalid_required_response_fields_are_rejected[model-123]\npackages/api/tests/test_ogx_client.py::test_missing_required_response_fields_are_rejected[status]\npackages/api/tests/test_ogx_client.py::test_missing_required_response_fields_are_rejected[created_at]\npackages/api/tests/test_ogx_client.py::test_missing_required_response_fields_are_rejected[model]\npackages/api/tests/test_ogx_client.py::test_assistant_message_requires_its_contract_id\npackages/api/tests/test_ogx_client.py::test_explicit_rejections_are_distinguished_from_ambiguous_server_failures[400-True-False]\npackages/api/tests/test_ogx_client.py::test_explicit_rejections_are_distinguished_from_ambiguous_server_failures[401-True-False]\npackages/api/tests/test_ogx_client.py::test_explicit_rejections_are_distinguished_from_ambiguous_server_failures[403-True-False]\npackages/api/tests/test_ogx_client.py::test_explicit_rejections_are_distinguished_from_ambiguous_server_failures[429-True-True]\npackages/api/tests/test_ogx_client.py::test_explicit_rejections_are_distinguished_from_ambiguous_server_failures[500-False-True]\npackages/api/tests/test_ogx_client.py::test_explicit_rejections_are_distinguished_from_ambiguous_server_failures[502-False-True]\npackages/api/tests/test_ogx_client.py::test_transport_timeout_is_ambiguous_and_not_retried\npackages/api/tests/test_ogx_client.py::test_followup_request_passes_previous_response_id_without_conversation\npackages/api/tests/test_ogx_client.py::test_response_requires_matching_session_history_and_storage[metadata-None]\npackages/api/tests/test_ogx_client.py::test_response_requires_matching_session_history_and_storage[metadata-value1]\npackages/api/tests/test_ogx_client.py::test_response_requires_matching_session_history_and_storage[metadata-value2]\npackages/api/tests/test_ogx_client.py::test_response_requires_matching_session_history_and_storage[previous_response_id-unexpected-parent]\npackages/api/tests/test_ogx_client.py::test_response_requires_matching_session_history_and_storage[store-False]\npackages/api/tests/test_ogx_client.py::test_response_accepts_default_object_and_null_conversation\npackages/api/tests/test_openapi_contract.py::test_openapi_metadata_and_operations_match_the_frozen_contract\npackages/api/tests/test_openapi_contract.py::test_openapi_parameters_and_wire_schemas_match_the_frozen_contract\npackages/api/tests/test_schema_parity.py::test_migration_sql_is_byte_for_byte_the_approved_schema\npackages/api/tests/test_schema_parity.py::test_chat_request_model_matches_durable_idempotency_contract\npackages/api/tests/test_schema_parity.py::test_migration_statement_splitter_preserves_dollar_quoted_blocks\npackages/api/tests/test_scoring.py::test_scoring_request_persists_queued_run_and_schedules_processing\npackages/api/tests/test_scoring.py::test_scoring_create_deadline_returns_retryable_unavailable\npackages/api/tests/test_scoring.py::test_resume_processes_only_persisted_accepted_run_ids\npackages/api/tests/test_scoring.py::test_empty_startup_resume_does_not_call_prediction_tools\npackages/api/tests/test_scoring.py::test_data_fetch_page_requests_use_the_configured_batch_bound\npackages/api/tests/test_scoring.py::test_repeated_cursor_cycle_is_rejected\npackages/api/tests/test_scoring.py::test_batch_size_above_frozen_data_fetch_limit_is_rejected\npackages/api/tests/test_scoring.py::test_prediction_validation_rejects_missing_or_unknown_subjects\npackages/common/tests/test_http.py::test_retry_after_seconds_parses_numeric_delay\npackages/common/tests/test_http.py::test_retry_after_seconds_parses_http_date\npackages/common/tests/test_http.py::test_retry_after_seconds_returns_zero_for_past_date\npackages/common/tests/test_http.py::test_retry_after_seconds_returns_none_for_missing_or_invalid_values[None]\npackages/common/tests/test_http.py::test_retry_after_seconds_returns_none_for_missing_or_invalid_values[]\npackages/common/tests/test_http.py::test_retry_after_seconds_returns_none_for_missing_or_invalid_values[not-a-date]\npackages/common/tests/test_http.py::test_retry_after_seconds_returns_none_for_missing_or_invalid_values[-1]\npackages/common/tests/test_http.py::test_retry_after_seconds_returns_none_for_missing_or_invalid_values[NaN]\npackages/common/tests/test_http.py::test_retry_after_seconds_returns_none_for_missing_or_invalid_values[Infinity]\npackages/common/tests/test_http.py::test_numeric_retry_after_within_cap_is_used\npackages/common/tests/test_http.py::test_past_date_retries_immediately\npackages/common/tests/test_http.py::test_invalid_retry_after_uses_bounded_backoff[invalid]\npackages/common/tests/test_http.py::test_invalid_retry_after_uses_bounded_backoff[-1]\npackages/common/tests/test_http.py::test_retry_after_over_cap_returns_response_without_early_retry[30]\npackages/common/tests/test_http.py::test_retry_after_over_cap_returns_response_without_early_retry[Mon, 26 Oct 2026 16:34:01 +0000]\npackages/data-fetch-tool/tests/test_database_config.py::test_missing_readonly_dsn_fails_startup_configuration\npackages/data-fetch-tool/tests/test_database_config.py::test_non_postgresql_dsn_is_rejected_without_a_fallback\npackages/data-fetch-tool/tests/test_database_config.py::test_malformed_dsn_fails_with_a_safe_configuration_message\npackages/data-fetch-tool/tests/test_database_config.py::test_engine_uses_finite_timeouts_and_readonly_postgresql_settings\npackages/data-fetch-tool/tests/test_mcp_contract.py::test_real_and_fake_implement_the_consumer_protocol\npackages/data-fetch-tool/tests/test_mcp_contract.py::test_mcp_exposes_only_frozen_tool_and_returns_bounded_records\npackages/data-fetch-tool/tests/test_mcp_contract.py::test_omitted_empty_and_explicit_fields_share_the_default_shape\npackages/data-fetch-tool/tests/test_mcp_contract.py::test_unknown_alias_returns_a_structured_error_without_sql_details\npackages/data-fetch-tool/tests/test_read_only_access.py::test_query_is_read_only_bound_and_returns_only_requested_entity_ids\npackages/data-fetch-tool/tests/test_read_only_access.py::test_unknown_field_alias_is_rejected_before_opening_a_session\npackages/data-fetch-tool/tests/test_read_only_access.py::test_parallel_calls_get_distinct_sessions_that_close_on_success\npackages/data-fetch-tool/tests/test_read_only_access.py::test_database_failure_closes_session_and_returns_safe_error\npackages/data-fetch-tool/tests/test_schema_compat.py::test_entity_tables_match_every_column_in_the_frozen_ddl\npackages/data-fetch-tool/tests/test_schema_compat.py::test_entity_field_aliases_match_the_frozen_mcp_contract\npackages/data-generator/tests/test_generator_database_config.py::test_settings_use_documented_defaults_and_require_async_postgres\npackages/data-generator/tests/test_generator_database_config.py::test_settings_bound_coupling_and_ingest_batch_size\npackages/data-generator/tests/test_generator_database_config.py::test_readiness_succeeds_after_bounded_retries\npackages/data-generator/tests/test_generator_database_config.py::test_readiness_stops_after_its_attempt_limit\npackages/data-generator/tests/test_generator_schema_compat.py::test_writer_tables_match_every_column_in_the_frozen_schema\npackages/data-generator/tests/test_idempotency.py::test_repeated_and_resumed_snapshot_loads_keep_stable_row_counts\npackages/data-generator/tests/test_transform.py::test_all_churn_cycles_are_retained_and_dollar_weight_uses_the_mean\npackages/data-generator/tests/test_transform.py::test_non_finite_source_values_remain_stable_and_jsonb_compatible\npackages/data-generator/tests/test_transform.py::test_qoe_region_and_source_grain_are_preserved_with_empirical_classes\npackages/data-generator/tests/test_transform.py::test_regional_coupling_changes_the_churn_and_signal_loss_association\npackages/data-generator/tests/test_transform.py::test_qoe_missing_typed_value_uses_an_empirical_value_and_keeps_raw_source\npackages/data-generator/tests/test_transform.py::test_ra_fraud_transactions_keep_labels_and_a_single_plan_per_customer\npackages/prediction-tools/tests/test_data_fetch_client.py::test_client_uses_only_the_allowlisted_fetch_tool_and_typed_output\npackages/prediction-tools/tests/test_data_fetch_client.py::test_database_unavailable_is_mapped_to_typed_model_unavailable\npackages/prediction-tools/tests/test_data_fetch_client.py::test_missing_upstream_tool_is_a_typed_unavailable_error\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_churn_uses_manifest_order_and_batch_feature_shape\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_drop_first_order_and_positive_class_mapping\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_encodes_and_scales_all_eight_features_in_contract_order\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_source_output_shape_matches_frozen_contract\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_selects_class_output_by_name_without_using_probabilities[INT64-False]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_selects_class_output_by_name_without_using_probabilities[INT64-True]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_selects_class_output_by_name_without_using_probabilities[BOOL-False]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_selects_class_output_by_name_without_using_probabilities[BOOL-True]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_rejects_wrong_shape_and_nonflat_data[shape0-data0]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_rejects_wrong_shape_and_nonflat_data[shape1-data1]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_rejects_wrong_shape_and_nonflat_data[shape2-data2]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_rejects_nonfinite_or_invalid_scores[nan]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_rejects_nonfinite_or_invalid_scores[inf]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_rejects_nonfinite_or_invalid_scores[-1.0]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_rejects_nonfinite_or_invalid_scores[101.0]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_rejects_nonfinite_or_invalid_scores[True]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_rejects_nonfinite_or_invalid_scores[80]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_qoe_checks_flat_data_length_against_batch_beyond_json_schema\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs0]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs1]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs2]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs3]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs4]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs5]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs6]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs7]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs8]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs9]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs10]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs11]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs12]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs13]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs14]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs15]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_fraud_rejects_invalid_or_ambiguous_outputs[outputs16]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_source_shaped_responses_still_require_model_identity[model_name-different-model-fraud]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_source_shaped_responses_still_require_model_identity[model_name-different-model-qoe]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_source_shaped_responses_still_require_model_identity[model_version-different-artifact-fraud]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_source_shaped_responses_still_require_model_identity[model_version-different-artifact-qoe]\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_width_and_response_tensor_mismatches_are_rejected\npackages/prediction-tools/tests/test_kserve_v2_contract.py::test_authenticated_inference_retries_one_transient_failure\npackages/prediction-tools/tests/test_mcp_contract.py::test_exact_tools_have_typed_schemas_and_resolve_after_reconnect\npackages/prediction-tools/tests/test_mcp_contract.py::test_mcp_outputs_are_typed_ordered_deduplicated_and_class_mapped\npackages/prediction-tools/tests/test_mcp_contract.py::test_identical_concurrent_batches_share_one_inference\npackages/prediction-tools/tests/test_mcp_contract.py::test_feature_snapshot_change_invalidates_success_cache\npackages/prediction-tools/tests/test_mcp_contract.py::test_errors_are_structured_and_failed_inference_is_not_cached\npackages/prediction-tools/tests/test_mcp_contract.py::test_source_deadline_maps_to_typed_timeout\n\n147 tests collected in 2.42s\n"
+  },
+  "final_summary": {
+    "distinct_checks": 26,
+    "passed": 26,
+    "failed": [],
+    "python_tests_passed": 147,
+    "ui_tests_passed": 4,
+    "historical_failures_preserved": 1,
+    "historical_failure_resolution": "Initial make lint failed on existing API formatting; three files reformatted with AST parity and make lint subsequently passed."
+  },
+  "final_scope_audit": {
+    "source_files_identical": 10,
+    "original_deploy_state_unchanged": true,
+    "contract_hashes_match": true,
+    "manifest_hashes_match": true,
+    "no_baseline_files_removed": true,
+    "pipeline_execution": false,
+    "cluster_contact": false,
+    "mode": "Prepare for running copied pipelines later."
+  }
+}

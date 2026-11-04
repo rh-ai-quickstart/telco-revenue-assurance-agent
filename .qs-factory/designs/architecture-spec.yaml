@@ -12,8 +12,8 @@ technology_stack:
   database: "PostgreSQL"
   vector_db: "Not required (no vector search or RAG in v1)"
   llm_orchestration: "OGX via ai-architecture-charts/ogx-ai"
-  model_serving: "vLLM for Llama 3.1 8B via ai-architecture-charts/llm-service, KServe for ML models (churn/fraud/QoE)"
-  object_storage: "Not required in v1 (models artifacts stored in KServe-compatible locations)"
+  model_serving: "On-cluster vLLM for Llama 3.1 8B via ai-architecture-charts/llm-service, with optional remote OpenAI-compatible fallback; KServe V2 with MLServer LightGBM for churn and ONNX for RAFM fraud and Starlink QoE"
+  object_storage: "External S3-compatible storage is required for the existing KServe model artifacts; credentials and artifact paths are deployment inputs, and this chart does not deploy storage"
   local_runtime: "Not required (OpenShift AI only deployment target)"
   monorepo: "Turborepo with pnpm and uv"
   deploy_platform: "Red Hat OpenShift AI"
@@ -45,8 +45,9 @@ components:
     delivery: application
 
     constraints:
-      - "Handles on-demand scoring (no scheduled jobs in v1)"
-      - "Tools hide serving details from agent (Flask vs KServe abstraction)"
+      - "Handles on-demand scoring only; no scheduled jobs in v1"
+      - "Calls prediction-tools and data-fetch-tool through their MCP contracts; it does not call model endpoints directly"
+      - "Persists scoring-run status and prediction results for the dashboard"
 
     kb_sources:
       - path: components/fastapi-backend.md
@@ -72,15 +73,17 @@ components:
 
     chart:
       name: ai-architecture-charts/ogx-ai
-      version: "TBD during implementation"
+      version: "0.8.6"
 
     rhoai_features:
       - feature: "OGX (Technology Preview)"
         purpose: "Unified gen-AI runtime for agent orchestration with tool calling and OpenAI-compatible APIs"
 
     constraints:
-      - "Agent uses 4 registered tools: predict_churn, predict_fraud, predict_qoe, and fetch_customer_data"
-      - "Tools abstract serving layer (Flask vs KServe) and data schema from agent"
+      - "Agent uses four explicitly allowlisted tools across the prediction-tools and data-fetch-tool MCP services: predict_churn, predict_fraud, predict_qoe, and fetch_customer_data"
+      - "MCP endpoints use streamable HTTP and remain internal to the release namespace"
+      - "Conversation and metadata state use PostgreSQL; SQLite and in-memory persistence are disabled"
+      - "Tools abstract serving protocols and database schema from the agent"
 
     kb_sources:
       - path: components/llamastack.md
@@ -93,6 +96,8 @@ components:
     dependencies:
       - component: llm-serving
         reason: "Consumes LLM inference for reasoning and response generation"
+      - component: database
+        reason: "Persists OGX metadata and conversation state in PostgreSQL"
       - component: prediction-tools
         reason: "Invokes prediction tools registered in the OGX runtime"
       - component: data-fetch-tool
@@ -106,14 +111,14 @@ components:
 
     chart:
       name: ai-architecture-charts/llm-service
-      version: "TBD during implementation"
+      version: "0.1.0"
 
     rhoai_features:
       - feature: "Model serving platform (KServe)"
         purpose: "KServe InferenceService for vLLM deployment with GPU support"
 
     constraints:
-      - "GPU optional (on-cluster default, remote fallback if cluster lacks resources)"
+      - "GPU is optional; use the on-cluster Llama 3.1 8B endpoint when resources are available, otherwise configure a remote OpenAI-compatible endpoint"
       - "Model sized for L4/A10 class GPU"
       - "Model selection (Llama 3.1 8B) can be changed in future without agent code changes"
 
@@ -127,41 +132,45 @@ components:
 
   database:
     type: database
-    role: "PostgreSQL storing customers (churn profile, location, dollar weight) and transactions (RAFM features)"
-    technology: "PostgreSQL with pgvector extension"
+    role: "PostgreSQL storing customer profiles, every churn billing-cycle row, every RAFM transaction, QoE source samples, scoring runs, prediction results, OGX session state, and backend chat idempotency records"
+    technology: "PostgreSQL 17 with the pgvector extension (vector search is unused in v1)"
     delivery: chart
 
     chart:
       name: ai-architecture-charts/pgvector
-      version: "TBD during implementation"
+      version: "0.1.0"
 
     constraints:
-      - "Stores full datasets: ~113k customer billing cycles, 100k QoE location samples, 1M RAFM transactions"
+      - "Preserves all source rows: about 113k churn billing cycles, 100k QoE samples, and 1M RAFM transactions"
       - "Customer dollar weight = mean of TotalBillAmount across all billing cycles per CustomerID"
-      - "Churn scoring uses latest BillingCycleStart per customer"
+      - "Churn scoring uses the latest BillingCycleStart per customer"
+      - "Provisional v1 domain tables: customers, billing_cycles, transactions, qoe_samples, scoring_runs, and predictions; app.chat_requests separately stores session-scoped request hashes and completed response payloads for backend retry idempotency"
+      - "The schema preserves every source row; stable query and model fields are typed, with evolving raw source features retained losslessly in JSONB"
+      - "Schema is managed by versioned migrations; data-fetch uses a read-only database role"
       - "Regional coupling between QoE and churn is tunable and intentional"
 
     kb_sources:
       - path: components/pgvector.md
         match_reason: "PostgreSQL deployment patterns for relational data with synthetic data seeding strategies"
 
-    dependencies:
-      - component: data-generator
-        reason: "Data generator populates customers and transactions tables"
+    dependencies: []
 
   churn-model-serving:
     type: inference
-    role: "LightGBM churn prediction model serving per-customer churn risk on latest billing cycle"
-    technology: "LightGBM artifact"
+    role: "KServe V2 endpoint serving the existing LightGBM churn model for the latest billing cycle per customer"
+    technology: "MLServer LightGBM runtime with the native model.bst artifact"
     delivery: rhoai
 
     rhoai_features:
       - feature: "Model serving platform (KServe)"
-        purpose: "KServe InferenceService for churn model (Flask wrapper or native runtime decided at implementation)"
+        purpose: "KServe V2 InferenceService using the supplied MLServer LightGBM v4 runtime and native model.bst artifact"
 
     constraints:
-      - "Uses existing trained artifact from churn experiment (no retraining in v1)"
-      - "Serving approach (Flask vs KServe native with MLServer/OpenVINO/Triton) assessed per model at implementation"
+      - "Uses the existing trained artifact; no retraining in v1"
+      - "Serves the KServe V2 FP32 feature matrix and INT64 class output defined by the serving artifact"
+      - "Preprocessing uses the supplied PaymentStatus, PrimaryIssueType, and SupportChannel mappings and drops HasChurned, cycle/date columns, and CustomerID"
+      - "The ordered semantic feature manifest must match the artifact; prediction-tools validates its width before inference"
+      - "Artifact storage URI and namespace-scoped S3 connection are deployment values, never committed credentials"
 
     kb_sources:
       - path: architectures/model-serving-gateway.md
@@ -171,23 +180,24 @@ components:
       - path: deployment/container-build-mlserver-model-unwrap-multistage.md
         match_reason: "Artifact format handling for MLServer sklearn runtime"
 
-    dependencies:
-      - component: prediction-tools
-        reason: "Prediction tools wrap this model and handle serving protocol details"
+    dependencies: []
 
   fraud-model-serving:
     type: inference
-    role: "Fraud detection model serving per-transaction fraud flags"
-    technology: "Existing RAFM artifact"
+    role: "KServe V2 endpoint serving the existing RAFM fraud classifier per transaction"
+    technology: "ONNX BalancedRandomForest artifact with MLServer runtime"
     delivery: rhoai
 
     rhoai_features:
       - feature: "Model serving platform (KServe)"
-        purpose: "KServe InferenceService for fraud model (Flask wrapper or native runtime decided at implementation)"
+        purpose: "KServe V2 InferenceService using the supplied MLServer ONNX runtime and RAFM fraud ONNX artifact"
 
     constraints:
-      - "Uses existing trained artifact from RAFM experiment (no retraining in v1)"
-      - "Serving approach (Flask vs KServe native) assessed per model at implementation"
+      - "Uses the existing trained artifact; no retraining in v1"
+      - "Consumes the ONNX FP32 feature vector and returns the trained binary class output"
+      - "The ONNX class order is [False, True], mapped to Non-Fraud and Fraud respectively"
+      - "Preprocessing applies the training-time Plan_Type one-hot transform with drop_first semantics; the ordered feature manifest must match the artifact"
+      - "Artifact storage URI and namespace-scoped S3 connection are deployment values, never committed credentials"
 
     kb_sources:
       - path: architectures/model-serving-gateway.md
@@ -195,24 +205,25 @@ components:
       - path: deployment/helm-kserve-mlserver-sklearn-minio-rawdeployment.md
         match_reason: "KServe InferenceService deployment patterns with MLServer"
 
-    dependencies:
-      - component: prediction-tools
-        reason: "Prediction tools wrap this model and handle serving protocol details"
+    dependencies: []
 
   qoe-model-serving:
     type: inference
-    role: "Starlink QoE prediction model serving location-level quality scores"
-    technology: "Existing Starlink artifact"
+    role: "KServe V2 endpoint serving the existing Starlink QoE score model for a customer location"
+    technology: "ONNX transformer with MLServer runtime"
     delivery: rhoai
 
     rhoai_features:
       - feature: "Model serving platform (KServe)"
-        purpose: "KServe InferenceService for QoE model (Flask wrapper or native runtime decided at implementation)"
+        purpose: "KServe V2 InferenceService using MLServer ONNX for the Starlink QoE artifact; preprocessing sidecars are read from the configured S3 artifact prefix"
 
     constraints:
-      - "Uses existing trained artifact from Starlink experiment (no retraining in v1)"
-      - "Serving approach (Flask vs KServe native) assessed per model at implementation"
-      - "Current limitation: uses satellite internet data (telecom QoE data is future enhancement)"
+      - "Uses the existing trained artifact; no retraining in v1"
+      - "KServe receives latitude, longitude, elevation_m, visible_satellites, serving_satellites, signal_loss_db, season_encoded, and weather_encoded in that order after StandardScaler and season/weather label encoding"
+      - "The ONNX V2 input is FP32 with shape [batch, 1, 8] and returns one QoE score in the model's 0–100 range per row"
+      - "The scaler and label-encoder artifacts are read from the configured model-artifact prefix by prediction-tools"
+      - "Current limitation: uses satellite internet data; telecom QoE data is a future enhancement"
+      - "Artifact storage URI and namespace-scoped S3 connection are deployment values, never committed credentials"
 
     kb_sources:
       - path: architectures/model-serving-gateway.md
@@ -220,21 +231,19 @@ components:
       - path: deployment/makefile-multi-image-runtime-type-deploy-switch.md
         match_reason: "Runtime switching strategies for deployment"
 
-    dependencies:
-      - component: prediction-tools
-        reason: "Prediction tools wrap this model and handle serving protocol details"
+    dependencies: []
 
   prediction-tools:
     type: worker
-    role: "Python prediction tool wrappers (predict_churn, predict_fraud, predict_qoe) hiding serving details from agent"
-    technology: "Python with caching logic"
+    role: "FastMCP service exposing predict_churn, predict_fraud, and predict_qoe while hiding model-serving details from callers"
+    technology: "Python FastMCP over streamable HTTP, KServe V2 clients, and bounded result caching"
     delivery: application
 
     constraints:
-      - "Tools take domain inputs (customer IDs only) and return domain results (labels/scores)"
-      - "Tools hide serving protocol (Flask vs KServe V2) and data schema from agent"
-      - "Tool caching implemented for repeated predictions to avoid redundant model calls"
-      - "Swapping serving backend (Flask to KServe V2) requires only tool implementation change, not agent code"
+      - "MCP tools accept bounded customer or transaction identifiers and return typed domain results"
+      - "The service obtains model features through data-fetch-tool and validates model feature manifests before calling KServe V2"
+      - "Tool caching is keyed by prediction type, subject, model version, and feature snapshot; failures are not cached"
+      - "The MCP service exposes no arbitrary model URL, database query, or cluster operation"
 
     kb_sources:
       - path: architectures/mcp-tool-integration.md
@@ -252,15 +261,15 @@ components:
 
   data-fetch-tool:
     type: worker
-    role: "Data access abstraction taking customer IDs and field list, returning structured customer/transaction records"
-    technology: "Python with SQLAlchemy async queries"
+    role: "Read-only FastMCP service exposing fetch_customer_data for allowlisted customer and transaction records"
+    technology: "Python FastMCP over streamable HTTP with async SQLAlchemy queries"
     delivery: application
 
     constraints:
-      - "Dual-use: called by prediction tools (internal field fetching) and by agent (explicit data queries)"
-      - "Takes list of customer IDs and optional field names, returns structured records"
-      - "Hides database schema details from agent and prediction tools"
-      - "Supports both customer table and transaction table queries"
+      - "Serves the backend, prediction-tools, and OGX through one MCP contract"
+      - "Accepts bounded IDs, allowlisted entity types, field aliases, and filters; returns typed structured records"
+      - "Uses read-only database credentials and never executes caller-supplied SQL"
+      - "Hides database schema details from OGX and prediction-tools"
 
     kb_sources:
       - path: components/fastapi-backend.md
@@ -272,7 +281,7 @@ components:
 
   data-generator:
     type: worker
-    role: "Python script generating synthetic joined customer/transaction store from HuggingFace datasets"
+    role: "Python worker generating and joining customer, billing-cycle, QoE-sample, and RAFM transaction data from Hugging Face datasets"
     technology: "Python script"
     delivery: application
 
@@ -297,37 +306,77 @@ components:
 # ─── Integration & Data Flow ──────────────────────────────────
 integration_patterns:
   protocols:
-    - pair: "Backend/OGX → vLLM"
+    - pair: "Frontend → Backend"
+      protocol: "REST over HTTPS through the authenticated Route; OpenAPI contract under /api/v1"
+    - pair: "Backend → OGX"
+      protocol: "OpenAI-compatible Responses API over namespace-local HTTP"
+    - pair: "OGX → vLLM"
       protocol: "OpenAI-compatible HTTP API (vLLM /v1 endpoint)"
-    - pair: "Prediction tools → KServe models"
-      protocol: "KServe v2 inference protocol for churn/fraud/QoE predictions"
-    - pair: "OGX → Prediction tools"
-      protocol: "Python SDK (direct function calls with caching layer)"
+    - pair: "Backend → prediction-tools and data-fetch-tool"
+      protocol: "MCP over streamable HTTP/JSON-RPC for on-demand scoring and API data queries"
+    - pair: "OGX → prediction-tools and data-fetch-tool"
+      protocol: "MCP over streamable HTTP/JSON-RPC; only four domain tools are allowlisted"
+    - pair: "Prediction tools → data-fetch-tool"
+      protocol: "MCP over streamable HTTP/JSON-RPC for allowlisted model features"
+    - pair: "Prediction tools → churn/fraud/QoE model services"
+      protocol: "KServe V2 HTTP inference; feature order and transformations come from model manifests"
+    - pair: "Backend → PostgreSQL"
+      protocol: "Async SQLAlchemy over PostgreSQL for metrics, scoring runs, and persisted predictions"
+    - pair: "OGX → PostgreSQL"
+      protocol: "PostgreSQL-backed metadata and conversation state; SQLite fallback is disabled"
+    - pair: "Data-fetch-tool → PostgreSQL"
+      protocol: "Async SQLAlchemy over PostgreSQL with a read-only database role and allowlisted fields"
+    - pair: "Data-generator → PostgreSQL"
+      protocol: "Async SQLAlchemy over PostgreSQL with bounded, idempotent writes"
 
   data_flows:
-    - name: "Revenue assurance analysis (full)"
-      path: "Frontend → Backend → OGX agent → vLLM (reasoning) → Prediction tools (customer IDs) → Data-fetch tool → PostgreSQL (field fetch) → KServe models (churn/fraud/QoE) → Analysis result"
+    - name: "Revenue assurance analysis"
+      path: "Frontend → Backend → OGX Responses API → vLLM; OGX calls prediction-tools and data-fetch-tool over MCP; tools query PostgreSQL or KServe as needed"
+    - name: "On-demand scoring run"
+      path: "Frontend → Backend → prediction-tools over MCP → data-fetch-tool over MCP → PostgreSQL and KServe; Backend persists run status and prediction results"
     - name: "Agent data query"
-      path: "Frontend → Backend → OGX agent → Data-fetch tool (customer IDs + fields) → PostgreSQL → Structured response"
+      path: "Frontend → Backend → OGX → data-fetch-tool over MCP → PostgreSQL → structured response"
+    - name: "Agent session persistence"
+      path: "Backend → OGX Responses API → OGX PostgreSQL metadata and conversation state"
     - name: "Dashboard metrics query"
-      path: "Frontend → Backend → PostgreSQL (direct aggregation) → Metrics response"
+      path: "Frontend → Backend → PostgreSQL → metrics response"
     - name: "Model prediction with caching"
-      path: "Prediction tools (cache check) → Data-fetch tool → KServe InferenceService (if miss) → Cached result"
+      path: "prediction-tools cache check → data-fetch-tool and KServe V2 (on cache miss) → typed cached result"
     - name: "Data initialization"
-      path: "Data generator → PostgreSQL (seed customers/transactions)"
+      path: "Data generator → PostgreSQL (customer profiles, billing cycles, QoE samples, and transactions)"
 
   security_boundaries:
-    - point: "Frontend → Backend"
-      mechanism: "OAuth2 with RHOAI authentication"
-    - point: "Backend → KServe models"
-      mechanism: "Service account token, network policy to model namespace"
-    - point: "Database access"
-      mechanism: "PostgreSQL credentials via OpenShift secrets"
-    - point: "Model storage"
-      mechanism: "S3/MinIO credentials for KServe model artifacts via OpenShift secrets"
+    - point: "Browser → Frontend/API Route"
+      mechanism: "OpenShift OAuth-protected Route; browser API calls use the same-origin /api/v1 path, and the backend trusts identity only from the configured trusted ingress/proxy"
+    - point: "Backend/OGX → MCP services"
+      mechanism: "Namespace-local Services, no public Route; explicit tool allowlist and bounded request sizes"
+    - point: "MCP data access"
+      mechanism: "Read-only PostgreSQL credentials and allowlisted fields, entity types, filters, and result limits"
+    - point: "Backend/OGX/data generator → PostgreSQL"
+      mechanism: "Dedicated namespace-scoped ServiceAccounts and OpenShift Secret references; separate least-privilege database roles for application writes, OGX state, and seeding"
+    - point: "Data-fetch-tool → PostgreSQL"
+      mechanism: "Read-only database credentials, allowlisted fields and filters, bounded result sizes"
+    - point: "OGX → LLM endpoint"
+      mechanism: "On-cluster vLLM by default; a remote endpoint's credential is supplied only through an OpenShift Secret"
+    - point: "Prediction tools → KServe models"
+      mechanism: "Authenticated namespace-local KServe V2 endpoints and network policies"
+    - point: "Model artifacts"
+      mechanism: "Existing namespace-scoped S3 connection Secret; read-only access, with no credential values in Git"
+
+security_considerations:
+  cluster_access:
+    target_namespace: "Single release namespace supplied at deployment"
+    agent_profile: "local-only; chart preparation uses Helm/Makefile targets and no direct cluster API access"
+    app_mcp_allowlist: [predict_churn, predict_fraud, predict_qoe, fetch_customer_data]
+    cluster_operations_exposed_to_agent: false
+  application:
+    secrets: "Database, LLM, KServe, and S3 credentials are referenced from OpenShift Secrets; values.yaml contains no secret values"
+    service_accounts: "Dedicated namespace-scoped identities per workload; no cluster-admin or unnecessary Kubernetes API access"
+    user_input: "Validate request sizes, identifiers, field aliases, filters, and chat input; reject arbitrary SQL and arbitrary endpoint URLs"
+    model_artifacts: "S3 credentials are read-only for serving and preprocessing; model artifacts are trusted deployment inputs"
 
 # ─── Architecture Diagram ─────────────────────────────────────
-architecture_diagram_path: .rhoai-qs/telco-revenue-assurance-agent/designs/architecture-diagram.mmd
+architecture_diagram_path: .qs-factory/designs/architecture-diagram.mmd
 
 # ─── Testing Strategy ─────────────────────────────────────────
 testing_strategy:
@@ -355,12 +404,12 @@ testing_strategy:
 
 # ─── Dependencies ─────────────────────────────────────────────
 dependencies:
-  - spec: .rhoai-qs/telco-revenue-assurance-agent/prds/prd.md
+  - spec: .qs-factory/prds/prd.md
     fields_used: [use_case_summary, user_flows, data_model, ai_touchpoints, deploy_target, constraints]
     content_hash: "sha256:99e986286746a147da622f7b1d17b213e80e355e05a8f570d0c8dc62a2228751"
-  - spec: .rhoai-qs/telco-revenue-assurance-agent/pipeline/prd-features.yaml
+  - spec: .qs-factory/pipeline/prd-features.yaml
     fields_used: [input_features, deployment_questions, decision_points]
     content_hash: "sha256:48628815f4624f04a8c97216c8a78481a57f6a8f6e09efd3d4389d6913f2f687"
-  - spec: .rhoai-qs/telco-revenue-assurance-agent/pipeline/kb-scores.yaml
+  - spec: .qs-factory/pipeline/kb-scores.yaml
     fields_used: [results]
     content_hash: "sha256:b5596372c2fe8a1ca7130d8e42b235abcea0975e588ddca4b808d052b1829f49"

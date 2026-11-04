@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "telco-artifacts.jobName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "telco-artifacts.labels" . | nindent 4 }}
+immutable: true
+data:
+  bundle.json: |
+    {{- .Values.bundleManifest | nindent 4 }}
+  load_bundle.py: |
+    {{- .Files.Get "files/load_bundle.py" | nindent 4 }}
+  s3-requirements.txt: |
+    {{- .Files.Get "files/s3-requirements.txt" | nindent 4 }}

@@ -1,0 +1,12 @@
+dependencies:
+- name: ogx-ai
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.8.6
+- name: llm-service
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.1.0
+- name: pgvector
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.1.0
+digest: sha256:e35dcbce4c5609052373b6494637cbc1cbaf23554794846e578e504bfecf738a
+generated: "2026-10-21T15:30:30.184245908+03:00"

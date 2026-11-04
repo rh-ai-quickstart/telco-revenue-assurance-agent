@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:telco-revenue-assurance:prediction-mcp:1",
+  "title": "Telco prediction MCP tool contracts",
+  "description": "Input and output schemas for the three prediction tools exposed by the internal prediction-tools FastMCP service over streamable HTTP.",
+  "$defs": {
+    "CustomerId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Stable customer_id from the normalized customer record.",
+      "examples": ["customer-00421"]
+    },
+    "TransactionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Stable transaction_id assigned to one source RAFM row.",
+      "examples": ["ra-00000421"]
+    },
+    "ModelVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Deployment artifact version recorded by prediction-tools; use the configured artifact digest or release identifier.",
+      "examples": ["artifact-sha256-7ef02b3c"]
+    },
+    "PredictChurnInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["customer_ids"],
+      "properties": {
+        "customer_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/CustomerId" },
+          "description": "Customer IDs to score using the latest billing cycle per customer. Duplicate IDs are processed once, in first-occurrence order.",
+          "examples": [["customer-00421", "customer-00517"]]
+        }
+      },
+      "description": "Bounded request for churn classification. It has no database or run-persistence side effect."
+    },
+    "PredictChurnResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["customer_id", "class_id", "model_version"],
+      "properties": {
+        "customer_id": { "$ref": "#/$defs/CustomerId" },
+        "class_id": {
+          "type": "integer",
+          "description": "Raw INT64 class returned by the LightGBM artifact. Semantic churn labels are not assigned until the artifact class metadata is verified.",
+          "examples": [0, 1]
+        },
+        "model_version": { "$ref": "#/$defs/ModelVersion" }
+      },
+      "description": "One class result for one customer; no probability is promised by the serving contract."
+    },
+    "PredictChurnOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predictions"],
+      "properties": {
+        "predictions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PredictChurnResult" },
+          "description": "Unique customer results ordered by each ID's first position in the input."
+        }
+      }
+    },
+    "PredictFraudInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transaction_ids"],
+      "properties": {
+        "transaction_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/TransactionId" },
+          "description": "Transaction IDs to classify. Duplicate IDs are processed once, in first-occurrence order.",
+          "examples": [["ra-00000421", "ra-00000422"]]
+        }
+      },
+      "description": "Bounded request for RAFM transaction fraud classification."
+    },
+    "PredictFraudResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transaction_id", "class_id", "label", "is_fraud", "model_version"],
+      "properties": {
+        "transaction_id": { "$ref": "#/$defs/TransactionId" },
+        "class_id": {
+          "type": "integer",
+          "enum": [0, 1],
+          "description": "ONNX class index; artifact class order is [False, True], so 0 is Non-Fraud and 1 is Fraud.",
+          "examples": [0, 1]
+        },
+        "label": {
+          "type": "string",
+          "enum": ["Non-Fraud", "Fraud"],
+          "description": "Human-readable label derived from the fixed ONNX class order.",
+          "examples": ["Fraud"]
+        },
+        "is_fraud": {
+          "type": "boolean",
+          "description": "True exactly when class_id is 1 and label is Fraud.",
+          "examples": [true]
+        },
+        "model_version": { "$ref": "#/$defs/ModelVersion" }
+      }
+    },
+    "PredictFraudOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predictions"],
+      "properties": {
+        "predictions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PredictFraudResult" },
+          "description": "Unique transaction results ordered by each ID's first position in the input."
+        }
+      }
+    },
+    "PredictQoeInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["customer_ids"],
+      "properties": {
+        "customer_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/CustomerId" },
+          "description": "Customer IDs with an assigned QoE source sample/location. Duplicate IDs are processed once, in first-occurrence order.",
+          "examples": [["customer-00421", "customer-00517"]]
+        }
+      },
+      "description": "Bounded request for QoE scoring using the assigned Starlink source sample for each customer."
+    },
+    "PredictQoeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["customer_id", "score", "model_version"],
+      "properties": {
+        "customer_id": { "$ref": "#/$defs/CustomerId" },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "One QoE score on the trained model's 0–100 scale.",
+          "examples": [78.4]
+        },
+        "model_version": { "$ref": "#/$defs/ModelVersion" }
+      }
+    },
+    "PredictQoeOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predictions"],
+      "properties": {
+        "predictions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PredictQoeResult" },
+          "description": "Unique customer results ordered by each ID's first position in the input."
+        }
+      }
+    },
+    "McpError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "request_id", "retryable", "details"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": ["INVALID_INPUT", "SUBJECT_NOT_FOUND", "MODEL_UNAVAILABLE", "FEATURE_SCHEMA_MISMATCH", "UPSTREAM_TIMEOUT"],
+          "description": "Stable prediction MCP error code from contracts/errors.md.",
+          "examples": ["MODEL_UNAVAILABLE"]
+        },
+        "message": {
+          "type": "string",
+          "description": "Safe error message; raw SQL, endpoint details, and provider traces are excluded.",
+          "examples": ["The requested model is temporarily unavailable."]
+        },
+        "request_id": {
+          "type": "string",
+          "description": "Correlation identifier for logs.",
+          "examples": ["req_01J8Z2N5M9KF"]
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether the caller may retry under contracts/errors.md.",
+          "examples": [true]
+        },
+        "details": {
+          "type": "object",
+          "description": "Safe error context; empty when there is no field-level detail.",
+          "additionalProperties": true
+        }
+      }
+    }
+  },
+  "x-tool-definitions": [
+    {
+      "name": "predict_churn",
+      "description": "Predict the raw churn class for the latest billing cycle of each customer.",
+      "input_schema": "#/$defs/PredictChurnInput",
+      "output_schema": "#/$defs/PredictChurnOutput"
+    },
+    {
+      "name": "predict_fraud",
+      "description": "Classify each requested RAFM transaction as Non-Fraud or Fraud.",
+      "input_schema": "#/$defs/PredictFraudInput",
+      "output_schema": "#/$defs/PredictFraudOutput"
+    },
+    {
+      "name": "predict_qoe",
+      "description": "Return the trained 0–100 QoE score for each customer's assigned location sample.",
+      "input_schema": "#/$defs/PredictQoeInput",
+      "output_schema": "#/$defs/PredictQoeOutput"
+    }
+  ],
+  "x-contract-guarantees": {
+    "side_effects": "Prediction calls do not persist application rows. A bounded disposable success cache may be updated; failures are not cached.",
+    "errors": "Tool errors use McpError with INVALID_INPUT, SUBJECT_NOT_FOUND, MODEL_UNAVAILABLE, FEATURE_SCHEMA_MISMATCH, or UPSTREAM_TIMEOUT.",
+    "timeouts_retries": "Maximum batch is 100 identifiers. Clients set a deadline and may retry only transient model unavailability or timeout once; never retry invalid input or feature mismatch.",
+    "ordering": "Results include each subject ID and preserve first-occurrence input order. Duplicate IDs are deduplicated within a request.",
+    "versioning": "Tool names and schemas are v1. Breaking changes require a new MCP schema version; additive output fields require consumer tolerance."
+  },
+  "x-model-manifest-requirements": {
+    "churn": "The ordered semantic feature names and class interpretation are read from the deployed artifact manifest; the current design does not contain the exact feature list or class map.",
+    "fraud": "Apply the training-time Plan_Type one-hot transform with drop_first semantics. The exact ordered feature names are read from the deployed artifact manifest. Class order is [False, True].",
+    "qoe": "Preprocess latitude, longitude, elevation_m, visible_satellites, serving_satellites, signal_loss_db, season_encoded, weather_encoded in that order using the external scaler and label-encoder artifacts."
+  }
+}

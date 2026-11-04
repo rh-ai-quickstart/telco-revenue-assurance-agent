@@ -1,0 +1,143 @@
+schema_version: 1
+created_at: '2026-10-26T21:45:26.602989+00:00'
+namespace: telco-revenue-assurance-agent
+cluster_server: https://api.ai-dev02.kni.syseng.devcluster.openshift.com:6443
+endpoint: https://ds-pipeline-dspa-telco-revenue-assurance-agent.apps.ai-dev02.kni.syseng.devcluster.openshift.com
+tls_verification: true
+sdk_versions:
+  kfp: 2.16.0
+  kfp-kubernetes: 2.16.0
+  kfp-pipeline-spec: 2.16.0
+  kfp-server-api: 2.16.0
+  python-dotenv: 1.2.4
+training_algorithm_changes: false
+dataset_manifest: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/training-datasets.yaml
+runs:
+  fraud:
+    experiment_name: revass
+    arguments:
+      artifact_uri: s3://mybucket/data/telecom_revass_data.csv.xz
+      s3_model_key: models/fraud/1/model.onnx
+      secret_name: my-data-connection
+    dataset_sha256: 87da56b376dd01e8dd2aceeb3ee024b081f498a19032178b8285d714de8878ce
+    package: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/compiled-pipelines-sdk2.16/fraud.yaml
+    package_sha256: 486688b98d803f9ca33cd27966d099241f93004cffdcf1ee6780f213633e150c
+    source_sha256: cb4bb95e6f3b049209a47c166778f36daae1252bb053bf970f3920bd628a10a7
+    display_name: telco-fraud-rootfix-20261026-224830
+    state: SUCCEEDED
+    pipeline_root: s3://mybucket/pipeline-artifacts
+    previous_run_id: bbbff30b-3fe4-4d83-b177-2f44bd551711
+    fix_evidence: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/debug-training-runs.yaml
+    submission_started_at: '2026-10-26T22:48:36.967417+00:00'
+    run_id: 4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7
+    experiment_id: 905bc9fe-a1be-47cf-9270-8a0dc8647b21
+    submitted_at: '2026-10-26T22:48:37.596206+00:00'
+    observed_at: '2026-10-26T23:13:22.867551+00:00'
+    finished_at: '2026-10-26 22:51:07+00:00'
+  churn:
+    experiment_name: churn
+    arguments:
+      artifact_uri: s3://mybucket/data/synthetic_customer_data_evenly_distributed.csv
+      s3_model_key: models/churn/1/model.bst
+      secret_name: my-data-connection
+    dataset_sha256: b1cf55ae76149b912fb24b2950d9b2bd9214eae20bd6c5e4897095f9df6bf1f2
+    package: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/compiled-pipelines-sdk2.16/churn.yaml
+    package_sha256: 5ebc5501e737b555a5785326806f94b45528d1bed1cc7f03141e5b5daa287b09
+    source_sha256: 1d808ce52a0a2e4ed3a4207ee630bbfd54afd134f13c1364bac4cb53028688dd
+    display_name: telco-churn-rootfix-20261026-224830
+    state: SUCCEEDED
+    pipeline_root: s3://mybucket/pipeline-artifacts
+    previous_run_id: e81b0f37-a1e0-4637-94a8-0d33e060e82c
+    fix_evidence: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/debug-training-runs.yaml
+    submission_started_at: '2026-10-26T22:48:37.610602+00:00'
+    run_id: 1ea4bc0e-f1c7-44af-8d80-58dc53eaa805
+    experiment_id: afb9942d-34a9-4eb1-8c4c-1968b0c0fbe6
+    submitted_at: '2026-10-26T22:48:38.074811+00:00'
+    observed_at: '2026-10-26T23:13:22.867551+00:00'
+    finished_at: '2026-10-26 22:50:50+00:00'
+  qoe:
+    experiment_name: starlink-qoe
+    arguments:
+      artifact_uri: s3://mybucket/data/starlink_data.csv
+      s3_endpoint: http://telco-training-storage.telco-revenue-assurance-agent.svc.cluster.local:7480
+      s3_bucket: mybucket
+      s3_model_path: models/starlink-qoe
+    dataset_sha256: 362a56b578287a45baf6066159f68ac6c133d8088c94e6b52c3500ed57f004f9
+    package: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/compiled-pipelines-sdk2.16/qoe.yaml
+    package_sha256: ba9d21381ee90ed14fafba5f0a9501dff65fd9e7a8b3305a861d6d68dfa5c041
+    source_sha256: 39f27c1bedc10fc2c5035bad2859654937b838a82e57b9df1f39ca8b111127a1
+    display_name: telco-qoe-rootfix-20261026-224830
+    state: SUCCEEDED
+    pipeline_root: s3://mybucket/pipeline-artifacts
+    previous_run_id: 348fb9f5-ef77-4415-89e8-d4f0dfb8fc8b
+    fix_evidence: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/debug-training-runs.yaml
+    submission_started_at: '2026-10-26T22:48:38.087517+00:00'
+    run_id: 8b213f6f-abc8-45be-bbaf-7230ffffcd3f
+    experiment_id: 8534837d-6ce7-463c-8d70-6e06017a6a4b
+    submitted_at: '2026-10-26T22:48:38.616996+00:00'
+    observed_at: '2026-10-26T23:13:22.867551+00:00'
+    finished_at: '2026-10-26 23:12:38+00:00'
+previous_attempts:
+- preserved_at: '2026-10-26T22:48:30.014940+00:00'
+  outcome: 'FAILED before training: imported inputs used environment credentials because
+    input bucket differed from pipeline root bucket'
+  runs:
+    fraud:
+      display_name: telco-fraud-20261026-214526
+      experiment_name: revass
+      state: FAILED
+      arguments:
+        artifact_uri: s3://mybucket/data/telecom_revass_data.csv.xz
+        s3_model_key: models/fraud/1/model.onnx
+        secret_name: my-data-connection
+      dataset_sha256: 87da56b376dd01e8dd2aceeb3ee024b081f498a19032178b8285d714de8878ce
+      package: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/compiled-pipelines-sdk2.16/fraud.yaml
+      package_sha256: 486688b98d803f9ca33cd27966d099241f93004cffdcf1ee6780f213633e150c
+      source_sha256: cb4bb95e6f3b049209a47c166778f36daae1252bb053bf970f3920bd628a10a7
+      submission_started_at: '2026-10-26T21:45:27.333113+00:00'
+      run_id: bbbff30b-3fe4-4d83-b177-2f44bd551711
+      experiment_id: 905bc9fe-a1be-47cf-9270-8a0dc8647b21
+      submitted_at: '2026-10-26T21:45:28.512451+00:00'
+      observed_at: '2026-10-26T22:04:27.481038+00:00'
+      finished_at: '2026-10-26 21:49:26+00:00'
+    churn:
+      display_name: telco-churn-20261026-214526
+      experiment_name: churn
+      state: FAILED
+      arguments:
+        artifact_uri: s3://mybucket/data/synthetic_customer_data_evenly_distributed.csv
+        s3_model_key: models/churn/1/model.bst
+        secret_name: my-data-connection
+      dataset_sha256: b1cf55ae76149b912fb24b2950d9b2bd9214eae20bd6c5e4897095f9df6bf1f2
+      package: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/compiled-pipelines-sdk2.16/churn.yaml
+      package_sha256: 5ebc5501e737b555a5785326806f94b45528d1bed1cc7f03141e5b5daa287b09
+      source_sha256: 1d808ce52a0a2e4ed3a4207ee630bbfd54afd134f13c1364bac4cb53028688dd
+      submission_started_at: '2026-10-26T21:45:28.518442+00:00'
+      run_id: e81b0f37-a1e0-4637-94a8-0d33e060e82c
+      experiment_id: afb9942d-34a9-4eb1-8c4c-1968b0c0fbe6
+      submitted_at: '2026-10-26T21:45:29.444546+00:00'
+      observed_at: '2026-10-26T22:04:27.481038+00:00'
+      finished_at: '2026-10-26 21:48:44+00:00'
+    qoe:
+      display_name: telco-qoe-20261026-214526
+      experiment_name: starlink-qoe
+      state: FAILED
+      arguments:
+        artifact_uri: s3://mybucket/data/starlink_data.csv
+        s3_endpoint: http://telco-training-storage.telco-revenue-assurance-agent.svc.cluster.local:7480
+        s3_bucket: mybucket
+        s3_model_path: models/starlink-qoe
+      dataset_sha256: 362a56b578287a45baf6066159f68ac6c133d8088c94e6b52c3500ed57f004f9
+      package: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/compiled-pipelines-sdk2.16/qoe.yaml
+      package_sha256: ba9d21381ee90ed14fafba5f0a9501dff65fd9e7a8b3305a861d6d68dfa5c041
+      source_sha256: 39f27c1bedc10fc2c5035bad2859654937b838a82e57b9df1f39ca8b111127a1
+      submission_started_at: '2026-10-26T21:45:29.459993+00:00'
+      run_id: 348fb9f5-ef77-4415-89e8-d4f0dfb8fc8b
+      experiment_id: 8534837d-6ce7-463c-8d70-6e06017a6a4b
+      submitted_at: '2026-10-26T21:45:30.970906+00:00'
+      observed_at: '2026-10-26T22:04:27.481038+00:00'
+      finished_at: '2026-10-26 21:46:21+00:00'
+updated_at: '2026-10-26T23:16:53.964711+00:00'
+training_attempt: 2
+status: SUCCEEDED
+completion_evidence: /home/yelias/Desktop/Projects/quickstart-factory/.tmp/telco-revenue-assurance-agent/debug/training-completion-evidence.json

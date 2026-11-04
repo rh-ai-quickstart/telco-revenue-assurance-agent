@@ -1,0 +1,38 @@
+{
+  "observed_at": "2026-10-26T23:38:22.251421+00:00",
+  "credential_values_recorded": false,
+  "files": [
+    {
+      "file": "model-serving-readiness.json",
+      "sha256": "25ba23e7d9abf2358c8c835999dc4e3aa31e7912e4fa5e3938a03a171991dd69"
+    },
+    {
+      "file": "model-storage-protocol-fix.json",
+      "sha256": "b9212201623180ca72f298a87175f6d891362d6e76cd7cfe69a11792274ea745"
+    },
+    {
+      "file": "model-storage-protocol-admission.json",
+      "sha256": "a444ce32113e3106ce95e77e39f36c29ca5087cc4c1dd20e636e97b24e626f22"
+    },
+    {
+      "file": "model-storage-declared-field-restoration.json",
+      "sha256": "80132179994bf599d6d4ea901250a9b126922605982d26a253eec5937e1c9322"
+    },
+    {
+      "file": "models-only-values.yaml",
+      "sha256": "8f4373ba6ae4c377b67d71c4a13693ee5fa2fa9e2f97a9c43b4570028bd5cb01"
+    },
+    {
+      "file": "models-only-deployment.yaml",
+      "sha256": "58b339f99e9b667b702652d7094c7e9c1ded965baf26d996360004edfcaf9335"
+    },
+    {
+      "file": "model-serving-recovery.md",
+      "sha256": "6995ba7aa23c62982e7e20bc5736d6a40b5f9b4325778546303f7b1929906b5d"
+    },
+    {
+      "file": "model-serving-final-health.yaml",
+      "sha256": "916b11908afd89c1789d0c3db7067ca373a132c5fc3549e6840742757962dd5a"
+    }
+  ]
+}

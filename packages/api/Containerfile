@@ -1,0 +1,37 @@
+FROM ghcr.io/astral-sh/uv:0.9.7 AS uv
+
+FROM registry.access.redhat.com/ubi9/python-312:1 AS build
+USER 0
+WORKDIR /workspace
+COPY --from=uv /uv /uvx /usr/local/bin/
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+COPY pyproject.toml uv.lock ./
+COPY packages/api/pyproject.toml packages/api/pyproject.toml
+COPY packages/common/pyproject.toml packages/common/pyproject.toml
+COPY packages/data-fetch-tool/pyproject.toml packages/data-fetch-tool/pyproject.toml
+COPY packages/data-generator/pyproject.toml packages/data-generator/pyproject.toml
+COPY packages/prediction-tools/pyproject.toml packages/prediction-tools/pyproject.toml
+COPY packages/api/src packages/api/src
+COPY packages/api/alembic.ini packages/api/alembic.ini
+COPY packages/api/alembic packages/api/alembic
+COPY packages/common/src packages/common/src
+COPY packages/data-fetch-tool/src packages/data-fetch-tool/src
+COPY packages/data-generator/src packages/data-generator/src
+COPY packages/prediction-tools/src packages/prediction-tools/src
+
+RUN uv sync --locked --no-dev --no-editable --package telco-revenue-assurance-api
+
+FROM registry.access.redhat.com/ubi9/python-312:1
+WORKDIR /workspace
+ENV PATH="/opt/venv/bin:${PATH}" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HOME=/tmp \
+    TMPDIR=/tmp
+COPY --from=build --chown=0:0 /opt/venv /opt/venv
+COPY --from=build --chown=0:0 /workspace/packages/api/alembic.ini /workspace/packages/api/alembic.ini
+COPY --from=build --chown=0:0 /workspace/packages/api/alembic /workspace/packages/api/alembic
+EXPOSE 8000

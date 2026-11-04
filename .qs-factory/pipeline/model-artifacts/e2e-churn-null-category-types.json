@@ -1,0 +1,51 @@
+{
+  "field_type_counts": {
+    "SupportChannel": {
+      "null": 1535,
+      "string": 26243
+    },
+    "PrimaryIssueType": {
+      "null": 1535,
+      "string": 26243
+    }
+  },
+  "latest_customer_count": 27778,
+  "null_or_missing_samples": [
+    {
+      "field": "PrimaryIssueType",
+      "value": null,
+      "json_type": "null",
+      "customer_id": "CUST0000007"
+    },
+    {
+      "field": "SupportChannel",
+      "value": null,
+      "json_type": "null",
+      "customer_id": "CUST0000007"
+    }
+  ],
+  "deployed_data_fetch_observation": {
+    "records": [
+      {
+        "customer_id": "CUST0000007",
+        "fields": {
+          "PrimaryIssueType": {
+            "present": true,
+            "python_type": "NoneType",
+            "value": null
+          },
+          "SupportChannel": {
+            "present": true,
+            "python_type": "NoneType",
+            "value": null
+          }
+        }
+      }
+    ],
+    "next_cursor": null
+  },
+  "observed_at": "2026-10-26T23:11:37.982982+00:00",
+  "source_path": "customers correlated latest billing_cycles.source_features; ORDER BY billing_cycle_start DESC,billing_cycle_id ASC; same expression as data_fetch_tool.field_allowlist._latest_churn_features",
+  "prediction_requests": 0,
+  "application_mutations": 0
+}

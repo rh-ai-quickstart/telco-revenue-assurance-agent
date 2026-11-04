@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:telco-revenue-assurance:churn-inference:1",
+  "title": "KServe V2 churn inference request",
+  "description": "Request schema for the supplied native LightGBM artifact served by MLServer v4 under KServe V2.",
+  "$defs": {
+    "PositiveDimension": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Positive tensor dimension."
+    },
+    "FeatureRow": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "number", "description": "One FP32-compatible feature value." },
+      "description": "One ordered row of model features; width and semantic order are taken from the validated artifact feature manifest."
+    },
+    "InputTensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "shape", "datatype", "data"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "KServe tensor name read from the deployed model metadata/feature manifest; not guessed by the caller."
+        },
+        "shape": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/PositiveDimension", "description": "Batch row count, at most 100." },
+            { "$ref": "#/$defs/PositiveDimension", "description": "Feature count declared by the deployed ordered feature manifest." }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Two-dimensional FP32 batch shape [batch, feature_count]."
+        },
+        "datatype": {
+          "type": "string",
+          "const": "FP32",
+          "description": "KServe V2 FP32 input tensor type."
+        },
+        "data": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/FeatureRow" },
+          "description": "Rows align with shape[0]; every row width equals shape[1] and follows the exact artifact feature manifest order."
+        }
+      },
+      "description": "Single tabular feature matrix for native LightGBM serving."
+    },
+    "InferenceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "inputs"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Caller-generated request correlation identifier.",
+          "examples": ["churn-req-00421"]
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/InputTensor" },
+          "description": "Exactly one FP32 matrix tensor."
+        }
+      }
+    },
+    "OutputTensor": {
+      "type": "object",
+      "allOf": [{
+        "if": { "properties": { "datatype": { "const": "INT64" } } },
+        "then": { "properties": { "data": { "items": { "type": "integer" } } } },
+        "else": { "properties": { "data": { "items": { "type": "number", "minimum": 0, "maximum": 1 } } } }
+      }],
+      "additionalProperties": false,
+      "required": ["name", "shape", "datatype", "data"],
+      "properties": {
+        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "KServe output tensor name reported by the model metadata."
+        },
+        "shape": {
+          "type": "array",
+          "prefixItems": [{ "$ref": "#/$defs/PositiveDimension", "description": "Number of predictions; equals input batch size." }, { "type": "integer", "const": 1 }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 2,
+          "description": "One result per row: [batch], or the MLServer NumPy codec shape [batch, 1]."
+        },
+        "datatype": {
+          "type": "string",
+          "enum": ["INT64", "FP32", "FP64"],
+          "description": "Native LightGBM returns FP64 positive-class probabilities; legacy INT64 class outputs are also accepted."
+        },
+        "data": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "type": "number" },
+          "description": "One class ID or positive-class probability per input row, preserving input order."
+        }
+      }
+    },
+    "InferenceResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "model_name", "model_version", "outputs"],
+      "properties": {
+        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+        "id": { "type": "string", "description": "Request ID echoed by the inference server." },
+        "model_name": { "type": "string", "const": "churn-prediction", "description": "Configured KServe model name." },
+        "model_version": { "type": "string", "description": "Served artifact version, which prediction-tools records with the result." },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/OutputTensor" },
+          "description": "Exactly one prediction tensor."
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/InferenceRequest",
+  "x-response-schema": "#/$defs/InferenceResponse",
+  "x-kserve-v2-route": "/v2/models/churn-prediction/infer",
+  "x-contract-guarantees": {
+    "side_effects": "Stateless inference; the model service does not mutate application database rows.",
+    "errors": "Invalid tensor, model not ready, invalid model name, and artifact storage failures use KServe V2 error responses and map to INVALID_TENSOR, MODEL_NOT_READY, INVALID_MODEL_NAME, or STORAGE_ERROR.",
+    "timeouts_retries": "Prediction-tools sets a 30 second per-batch deadline and retries one transient readiness/5xx failure after 500 milliseconds; invalid tensors and artifact mismatches are not retried.",
+    "ordering": "Exactly one probability or legacy class output is returned per input row and row order is preserved. FP32/FP64 probabilities become class 1 only when greater than 0.5; ties map to class 0, matching the trained binary classifier.",
+    "versioning": "KServe V2 is the wire protocol. The ordered semantic feature manifest and class metadata are versioned with the artifact and validated before inference."
+  },
+  "x-preprocessing": {
+    "source": "Supplied churn training/serving pipeline at commit 3037c340c5a4a27ae53f95b9146562c12c985c79.",
+    "categorical_mappings": {
+      "PaymentStatus": { "Paid": 0, "Partial": 0.5, "Unpaid": 1 },
+      "PrimaryIssueType": { "": 0, "Billing": 0.7, "Technical": 0.8, "Service Quality": 0.6 },
+      "SupportChannel": { "": 0, "Phone": 1, "Chat": 0.5, "Email": 0.2 }
+    },
+    "excluded_fields": ["HasChurned", "BillingCycleStart", "cycle/date fields", "CustomerID"],
+    "unresolved_artifact_metadata": "The exact ordered feature names, width, input/output tensor names, and class-to-semantic-label mapping must come from the deployed artifact manifest; they are not specified in the architecture handoff."
+  }
+}

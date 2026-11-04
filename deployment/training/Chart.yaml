@@ -1,0 +1,9 @@
+apiVersion: v2
+name: telco-training
+description: Optional training infrastructure for the Telco revenue assurance models
+type: application
+version: 0.1.0
+dependencies:
+  - name: configure-pipeline
+    version: 0.6.0
+    repository: https://rh-ai-quickstart.github.io/ai-architecture-charts

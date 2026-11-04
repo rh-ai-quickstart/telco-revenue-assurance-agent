@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.predictionTools.serviceName }}
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "prediction-tools") | nindent 4 }}
+spec:
+  replicas: {{ .Values.predictionTools.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "telco.componentSelector" (dict "root" . "component" "prediction-tools") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "telco.componentSelector" (dict "root" . "component" "prediction-tools") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "telco.serviceAccount" (dict "root" . "suffix" "prediction-tools") }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.securityContext.pod | nindent 8 }}
+      containers:
+        - name: prediction-tools
+          image: {{ printf "%s:%s" .Values.predictionTools.image (.Values.predictionTools.imageTag | default .Values.image.tag) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "prediction_tools.main"]
+          env:
+            - name: DATA_FETCH_MCP_URL
+              value: {{ .Values.predictionTools.dataFetchMcpUrl | quote }}
+            - name: CHURN_MODEL_URL
+              value: {{ include "telco.modelUrl" (dict "root" . "model" .Values.modelServing.churn "override" .Values.predictionTools.modelUrls.churn) | quote }}
+            - name: FRAUD_MODEL_URL
+              value: {{ include "telco.modelUrl" (dict "root" . "model" .Values.modelServing.fraud "override" .Values.predictionTools.modelUrls.fraud) | quote }}
+            - name: QOE_MODEL_URL
+              value: {{ include "telco.modelUrl" (dict "root" . "model" .Values.modelServing.qoe "override" .Values.predictionTools.modelUrls.qoe) | quote }}
+            - name: SSL_CERT_FILE
+              value: /etc/telco-model-ca/service-ca.crt
+            - name: CHURN_MODEL_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.predictionTools.modelAuth.churn.secretName }}
+                  key: {{ .Values.predictionTools.modelAuth.churn.tokenKey }}
+            - name: FRAUD_MODEL_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.predictionTools.modelAuth.fraud.secretName }}
+                  key: {{ .Values.predictionTools.modelAuth.fraud.tokenKey }}
+            - name: QOE_MODEL_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.predictionTools.modelAuth.qoe.secretName }}
+                  key: {{ .Values.predictionTools.modelAuth.qoe.tokenKey }}
+            - name: MODEL_FEATURE_MANIFEST_DIR
+              value: {{ .Values.predictionTools.modelFeatureManifestDir | quote }}
+            - name: FASTMCP_HOST
+              value: 0.0.0.0
+            - name: FASTMCP_PORT
+              value: {{ .Values.predictionTools.port | quote }}
+            - name: FASTMCP_TRANSPORT
+              value: http
+            - name: FASTMCP_SHOW_SERVER_BANNER
+              value: "false"
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: HOME
+              value: /tmp
+            - name: TMPDIR
+              value: /tmp
+          ports:
+            - name: http
+              containerPort: {{ .Values.predictionTools.port }}
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: model-service-ca
+              mountPath: /etc/telco-model-ca
+              readOnly: true
+            - name: feature-artifacts
+              mountPath: {{ .Values.predictionTools.featureArtifactsMountPath | quote }}
+              readOnly: true
+          resources:
+            {{- toYaml .Values.predictionTools.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: model-service-ca
+          configMap:
+            name: {{ .Values.predictionTools.modelServiceCA.configMapName | quote }}
+            items:
+              - key: {{ .Values.predictionTools.modelServiceCA.key | quote }}
+                path: service-ca.crt
+        - name: feature-artifacts
+          persistentVolumeClaim:
+            claimName: {{ .Values.predictionTools.featureArtifactsClaim }}

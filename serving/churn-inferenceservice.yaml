@@ -1,0 +1,57 @@
+#oc get inferenceservices.serving.kserve.io churn-prediction -n showcase 
+#NAME               URL                                                           READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION   AGE
+#churn-prediction   https://churn-prediction-showcase.apps.ptnr2.cert4.bos2.lab   True                                                                  39h
+
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    modelFormat: lightgbm
+    opendatahub.io/connection-path: models/churn/1
+    opendatahub.io/connections: my-data-connection
+    opendatahub.io/hardware-profile-name: default-profile
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/hardware-profile-resource-version: "2014103"
+    opendatahub.io/model-type: predictive
+    openshift.io/description: test churn
+    openshift.io/display-name: churn-prediction
+    security.opendatahub.io/enable-auth: "true"
+    serving.kserve.io/deploymentMode: Standard
+  creationTimestamp: "2026-10-13T22:15:14Z"
+  finalizers:
+  - inferenceservice.finalizers
+  - odh.inferenceservice.finalizers
+  generation: 1
+  labels:
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: "true"
+  name: churn-prediction
+  namespace: showcase
+  resourceVersion: "58795081"
+  uid: 3dc91b44-24b3-4842-98de-6244cbed0999
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: RollingUpdate
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      modelFormat:
+        name: lightgbm
+        version: "4"
+      name: ""
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: "2"
+          memory: 4Gi
+      runtime: churn-prediction
+      storage:
+        key: my-data-connection
+        path: models/churn/1
+    serviceAccountName: my-data-connection-sa
+    timeout: 30
+

@@ -1,0 +1,734 @@
+# PIPELINE DEFINITION
+# Name: starlink-qoe-prediction-pipeline
+# Description: End-to-end ML pipeline for training, evaluating, exporting to ONNX, and deploying the Starlink QoE Transformer model to S3 for KServe serving.
+# Inputs:
+#    artifact_uri: str [Default: 's3://mybucket/data/starlink_data.csv']
+#    batch_size: int [Default: 128.0]
+#    learning_rate: float [Default: 0.001]
+#    num_epochs: int [Default: 200.0]
+#    s3_bucket: str [Default: 'mybucket']
+#    s3_endpoint: str [Default: 'https://s3.openshift-storage.svc:443']
+#    s3_model_path: str [Default: 'models/starlink-qoe']
+components:
+  comp-data-prep:
+    executorLabel: exec-data-prep
+    inputDefinitions:
+      artifacts:
+        dataset_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        label_encoders_file:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        scaler_file:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        x_test_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        x_train_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        y_test_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        y_train_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-evaluate-model:
+    executorLabel: exec-evaluate-model
+    inputDefinitions:
+      artifacts:
+        model_file:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        x_test_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        y_test_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        mlpipeline_metrics_file:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+  comp-export-to-onnx:
+    executorLabel: exec-export-to-onnx
+    inputDefinitions:
+      artifacts:
+        model_file:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        onnx_model_file:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-importer:
+    executorLabel: exec-importer
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-train-model:
+    executorLabel: exec-train-model
+    inputDefinitions:
+      artifacts:
+        x_train_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        y_train_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        batch_size:
+          parameterType: NUMBER_INTEGER
+        learning_rate:
+          parameterType: NUMBER_DOUBLE
+        num_epochs:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        model_file:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-upload-model-to-s3:
+    executorLabel: exec-upload-model-to-s3
+    inputDefinitions:
+      artifacts:
+        label_encoders_file:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        onnx_model_file:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        scaler_file:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+      parameters:
+        s3_bucket:
+          parameterType: STRING
+        s3_endpoint:
+          parameterType: STRING
+        s3_model_path:
+          parameterType: STRING
+  comp-validate-model:
+    executorLabel: exec-validate-model
+    inputDefinitions:
+      artifacts:
+        label_encoders_file:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        model_file:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        scaler_file:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-data-prep:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - data_prep
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'scikit-learn'\
+          \ 'numpy'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.17.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef data_prep(\n    dataset_file: dsl.Input[dsl.Dataset],\n    x_train_file:\
+          \ dsl.Output[dsl.Dataset],\n    x_test_file: dsl.Output[dsl.Dataset],\n\
+          \    y_train_file: dsl.Output[dsl.Dataset],\n    y_test_file: dsl.Output[dsl.Dataset],\n\
+          \    scaler_file: dsl.Output[dsl.Artifact],\n    label_encoders_file: dsl.Output[dsl.Artifact],\n\
+          ):\n    \"\"\"Load Starlink QoE data, encode categoricals, scale features,\
+          \ and split.\"\"\"\n    import joblib\n    import pandas as pd\n    from\
+          \ sklearn.model_selection import train_test_split\n    from sklearn.preprocessing\
+          \ import LabelEncoder, StandardScaler\n\n    df = pd.read_csv(dataset_file.path)\n\
+          \    print(f\"Loaded dataset with {len(df)} rows\")\n    df.info()\n   \
+          \ print(df.head())\n\n    label_encoders: dict = {}\n    for categorical_feature\
+          \ in [\"season\", \"weather\"]:\n        label_encoders[categorical_feature]\
+          \ = LabelEncoder()\n        df[f\"{categorical_feature}_encoded\"] = label_encoders[categorical_feature].fit_transform(\n\
+          \            df[categorical_feature]\n        )\n\n    features = [\n  \
+          \      \"latitude\",\n        \"longitude\",\n        \"elevation_m\",\n\
+          \        \"visible_satellites\",\n        \"serving_satellites\",\n    \
+          \    \"signal_loss_db\",\n        \"season_encoded\",\n        \"weather_encoded\"\
+          ,\n    ]\n    target = \"qoe_score\"\n\n    X = df[features]\n    y = df[target]\n\
+          \n    scaler = StandardScaler()\n    X_scaled = pd.DataFrame(scaler.fit_transform(X),\
+          \ columns=features)\n\n    X_train, X_test, y_train, y_test = train_test_split(\n\
+          \        X_scaled, y, test_size=0.2, random_state=42\n    )\n\n    print(f\"\
+          Train set: {len(X_train)} rows | Test set: {len(X_test)} rows\")\n\n   \
+          \ X_train.to_pickle(x_train_file.path)\n    X_test.to_pickle(x_test_file.path)\n\
+          \    y_train.to_pickle(y_train_file.path)\n    y_test.to_pickle(y_test_file.path)\n\
+          \    joblib.dump(scaler, scaler_file.path)\n    joblib.dump(label_encoders,\
+          \ label_encoders_file.path)\n\n"
+        image: registry.access.redhat.com/ubi9/python-311:latest
+    exec-evaluate-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'torch'\
+          \ 'numpy' 'scikit-learn'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.17.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate_model(\n    x_test_file: dsl.Input[dsl.Dataset],\n \
+          \   y_test_file: dsl.Input[dsl.Dataset],\n    model_file: dsl.Input[dsl.Model],\n\
+          \    mlpipeline_metrics_file: dsl.Output[dsl.Metrics],\n):\n    \"\"\"Evaluate\
+          \ the trained model on the held-out test set and emit KFP metrics.\"\"\"\
+          \n    import json\n    import pickle\n\n    import numpy as np\n    import\
+          \ pandas as pd\n    import torch\n    import torch.nn as nn\n    from sklearn.metrics\
+          \ import mean_absolute_error, mean_squared_error, r2_score\n\n    class\
+          \ StarlinkTransformer(nn.Module):\n        def __init__(self, input_dim:\
+          \ int, num_heads: int = 4, dim_feedforward: int = 128, dropout: float =\
+          \ 0.1):\n            super().__init__()\n            self.transformer =\
+          \ nn.TransformerEncoder(\n                nn.TransformerEncoderLayer(\n\
+          \                    d_model=input_dim,\n                    nhead=num_heads,\n\
+          \                    dim_feedforward=dim_feedforward,\n                \
+          \    dropout=dropout,\n                    batch_first=True,\n         \
+          \       ),\n                num_layers=2,\n            )\n            self.fc\
+          \ = nn.Linear(input_dim, 1)\n\n        def forward(self, x: torch.Tensor)\
+          \ -> torch.Tensor:\n            x = self.transformer(x)\n            x =\
+          \ torch.mean(x, dim=1)\n            return self.fc(x)\n\n    X_test = pd.read_pickle(x_test_file.path)\n\
+          \    y_test = pd.read_pickle(y_test_file.path)\n\n    with open(model_file.path,\
+          \ \"rb\") as f:\n        artifact = pickle.load(f)\n\n    model = StarlinkTransformer(input_dim=artifact[\"\
+          input_dim\"])\n    model.load_state_dict(artifact[\"model_state_dict\"])\n\
+          \    model.eval()\n\n    feature_names = artifact[\"features\"]\n    x_tensor\
+          \ = torch.FloatTensor(X_test[feature_names].values)\n\n    with torch.no_grad():\n\
+          \        predictions = model(x_tensor.unsqueeze(1)).flatten().numpy()\n\
+          \    labels = y_test.values.astype(np.float32)\n\n    mse = float(mean_squared_error(labels,\
+          \ predictions))\n    rmse = float(np.sqrt(mse))\n    mae = float(mean_absolute_error(labels,\
+          \ predictions))\n    r2 = float(r2_score(labels, predictions))\n    mape\
+          \ = float(np.mean(np.abs((labels - predictions) / np.clip(labels, 1e-8,\
+          \ None))) * 100)\n\n    print(\"=\" * 50)\n    print(\"Starlink QoE Transformer\
+          \ \u2014 Evaluation Results\")\n    print(f\"  MSE  : {mse:.4f}\")\n   \
+          \ print(f\"  RMSE : {rmse:.4f}\")\n    print(f\"  MAE  : {mae:.4f}\")\n\
+          \    print(f\"  R\xB2   : {r2:.4f}\")\n    print(f\"  MAPE : {mape:.2f}%\"\
+          )\n    print(\"=\" * 50)\n\n    metrics = {\n        \"metrics\": [\n  \
+          \          {\"name\": \"mse\", \"numberValue\": mse, \"format\": \"RAW\"\
+          },\n            {\"name\": \"rmse\", \"numberValue\": rmse, \"format\":\
+          \ \"RAW\"},\n            {\"name\": \"mae\", \"numberValue\": mae, \"format\"\
+          : \"RAW\"},\n            {\"name\": \"r2_score\", \"numberValue\": r2, \"\
+          format\": \"RAW\"},\n            {\"name\": \"mape\", \"numberValue\": mape\
+          \ / 100.0, \"format\": \"PERCENTAGE\"},\n        ]\n    }\n    with open(mlpipeline_metrics_file.path,\
+          \ \"w\") as f:\n        json.dump(metrics, f)\n\n"
+        image: registry.access.redhat.com/ubi9/python-311:latest
+    exec-export-to-onnx:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - export_to_onnx
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'torch'\
+          \ 'numpy' 'onnx' 'onnxruntime' 'onnxscript'  &&  python3 -m pip install\
+          \ --quiet --no-warn-script-location 'kfp==2.17.0' '--no-deps' 'typing-extensions>=3.7.4,<5;\
+          \ python_version<\"3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef export_to_onnx(\n    model_file: dsl.Input[dsl.Model],\n    onnx_model_file:\
+          \ dsl.Output[dsl.Model],\n):\n    \"\"\"Export the trained StarlinkTransformer\
+          \ from PyTorch to ONNX format.\"\"\"\n    import pickle\n\n    import numpy\
+          \ as np\n    import onnxruntime as ort\n    import torch\n    import torch.nn\
+          \ as nn\n\n    class StarlinkTransformer(nn.Module):\n        def __init__(self,\
+          \ input_dim: int, num_heads: int = 4, dim_feedforward: int = 128, dropout:\
+          \ float = 0.1):\n            super().__init__()\n            self.transformer\
+          \ = nn.TransformerEncoder(\n                nn.TransformerEncoderLayer(\n\
+          \                    d_model=input_dim,\n                    nhead=num_heads,\n\
+          \                    dim_feedforward=dim_feedforward,\n                \
+          \    dropout=dropout,\n                    batch_first=True,\n         \
+          \       ),\n                num_layers=2,\n            )\n            self.fc\
+          \ = nn.Linear(input_dim, 1)\n\n        def forward(self, x: torch.Tensor)\
+          \ -> torch.Tensor:\n            x = self.transformer(x)\n            x =\
+          \ torch.mean(x, dim=1)\n            return self.fc(x)\n\n    with open(model_file.path,\
+          \ \"rb\") as f:\n        artifact = pickle.load(f)\n\n    model = StarlinkTransformer(input_dim=artifact[\"\
+          input_dim\"])\n    model.load_state_dict(artifact[\"model_state_dict\"])\n\
+          \    model.eval()\n\n    input_dim = artifact[\"input_dim\"]\n    dummy_input\
+          \ = torch.randn(1, 1, input_dim)\n\n    torch.onnx.export(\n        model,\n\
+          \        dummy_input,\n        onnx_model_file.path,\n        export_params=True,\n\
+          \        opset_version=17,\n        do_constant_folding=True,\n        input_names=[\"\
+          input\"],\n        output_names=[\"output\"],\n        dynamic_axes={\n\
+          \            \"input\": {0: \"batch_size\"},\n            \"output\": {0:\
+          \ \"batch_size\"},\n        },\n        dynamo=False,\n    )\n\n    with\
+          \ torch.no_grad():\n        pytorch_output = model(dummy_input).numpy()\n\
+          \n    session = ort.InferenceSession(onnx_model_file.path)\n    onnx_output\
+          \ = session.run(None, {\"input\": dummy_input.numpy()})[0]\n\n    max_diff\
+          \ = float(np.max(np.abs(pytorch_output - onnx_output)))\n    print(f\"ONNX\
+          \ export complete. Max diff vs PyTorch: {max_diff:.8f}\")\n    assert max_diff\
+          \ < 1e-5, f\"ONNX output diverges from PyTorch: {max_diff}\"\n    print(\"\
+          ONNX parity check PASSED.\")\n\n"
+        image: registry.access.redhat.com/ubi9/python-311:latest
+    exec-importer:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+    exec-train-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'torch'\
+          \ 'numpy'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.17.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train_model(\n    x_train_file: dsl.Input[dsl.Dataset],\n   \
+          \ y_train_file: dsl.Input[dsl.Dataset],\n    num_epochs: int,\n    batch_size:\
+          \ int,\n    learning_rate: float,\n    model_file: dsl.Output[dsl.Model],\n\
+          ):\n    \"\"\"Train the StarlinkTransformer model and persist its state\
+          \ dict.\"\"\"\n    import pickle\n\n    import numpy as np\n    import pandas\
+          \ as pd\n    import torch\n    import torch.nn as nn\n    from torch.utils.data\
+          \ import DataLoader, TensorDataset\n\n    class StarlinkTransformer(nn.Module):\n\
+          \        def __init__(self, input_dim: int, num_heads: int = 4, dim_feedforward:\
+          \ int = 128, dropout: float = 0.1):\n            super().__init__()\n  \
+          \          self.transformer = nn.TransformerEncoder(\n                nn.TransformerEncoderLayer(\n\
+          \                    d_model=input_dim,\n                    nhead=num_heads,\n\
+          \                    dim_feedforward=dim_feedforward,\n                \
+          \    dropout=dropout,\n                    batch_first=True,\n         \
+          \       ),\n                num_layers=2,\n            )\n            self.fc\
+          \ = nn.Linear(input_dim, 1)\n\n        def forward(self, x: torch.Tensor)\
+          \ -> torch.Tensor:\n            x = self.transformer(x)\n            x =\
+          \ torch.mean(x, dim=1)\n            return self.fc(x)\n\n    X_train = pd.read_pickle(x_train_file.path)\n\
+          \    y_train = pd.read_pickle(y_train_file.path)\n\n    feature_names =\
+          \ X_train.columns.tolist()\n    input_dim = len(feature_names)\n\n    x_tensor\
+          \ = torch.FloatTensor(X_train.values)\n    y_tensor = torch.FloatTensor(y_train.values).reshape(-1,\
+          \ 1)\n\n    train_dataset = TensorDataset(x_tensor, y_tensor)\n    train_loader\
+          \ = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)\n\n \
+          \   device = torch.device(\"cuda\" if torch.cuda.is_available() else \"\
+          cpu\")\n    model = StarlinkTransformer(input_dim=input_dim).to(device)\n\
+          \    criterion = nn.MSELoss()\n    optimizer = torch.optim.Adam(model.parameters(),\
+          \ lr=learning_rate)\n\n    print(f\"Training on {device} for {num_epochs}\
+          \ epochs (batch_size={batch_size}, lr={learning_rate})\")\n\n    for epoch\
+          \ in range(num_epochs):\n        model.train()\n        epoch_loss = 0.0\n\
+          \        for batch_x, batch_y in train_loader:\n            batch_x, batch_y\
+          \ = batch_x.to(device), batch_y.to(device)\n            optimizer.zero_grad()\n\
+          \            outputs = model(batch_x.unsqueeze(1))\n            loss = criterion(outputs,\
+          \ batch_y)\n            loss.backward()\n            optimizer.step()\n\
+          \            epoch_loss += loss.item()\n\n        if (epoch + 1) % 10 ==\
+          \ 0:\n            avg_loss = epoch_loss / len(train_loader)\n          \
+          \  print(f\"Epoch [{epoch + 1}/{num_epochs}], Loss: {avg_loss:.4f}\")\n\n\
+          \    artifact = {\n        \"model_state_dict\": model.cpu().state_dict(),\n\
+          \        \"features\": feature_names,\n        \"input_dim\": input_dim,\n\
+          \        \"architecture\": \"StarlinkTransformer\",\n        \"hyperparameters\"\
+          : {\n            \"num_heads\": 4,\n            \"dim_feedforward\": 128,\n\
+          \            \"dropout\": 0.1,\n            \"num_layers\": 2,\n       \
+          \     \"epochs\": num_epochs,\n            \"batch_size\": batch_size,\n\
+          \            \"learning_rate\": learning_rate,\n        },\n    }\n    with\
+          \ open(model_file.path, \"wb\") as f:\n        pickle.dump(artifact, f)\n\
+          \n    print(\"Model training complete and artifact saved.\")\n\n"
+        image: registry.access.redhat.com/ubi9/python-311:latest
+    exec-upload-model-to-s3:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - upload_model_to_s3
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'boto3'  && \
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.17.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef upload_model_to_s3(\n    onnx_model_file: dsl.Input[dsl.Model],\n\
+          \    scaler_file: dsl.Input[dsl.Artifact],\n    label_encoders_file: dsl.Input[dsl.Artifact],\n\
+          \    s3_endpoint: str,\n    s3_bucket: str,\n    s3_model_path: str,\n):\n\
+          \    \"\"\"Upload ONNX model and preprocessing artifacts to S3-compatible\
+          \ storage.\"\"\"\n    import os\n\n    import boto3\n\n    s3 = boto3.client(\n\
+          \        \"s3\",\n        endpoint_url=s3_endpoint,\n        aws_access_key_id=os.environ[\"\
+          AWS_ACCESS_KEY_ID\"],\n        aws_secret_access_key=os.environ[\"AWS_SECRET_ACCESS_KEY\"\
+          ],\n        verify=False,\n    )\n\n    uploads = [\n        (onnx_model_file.path,\
+          \ f\"{s3_model_path}/1/model.onnx\"),\n        (scaler_file.path,\
+          \ f\"{s3_model_path}/artifacts/scaler.joblib\"),\n        (label_encoders_file.path,\
+          \ f\"{s3_model_path}/artifacts/label_encoders.joblib\"),\n    ]\n\n    for\
+          \ local_path, s3_key in uploads:\n        s3.upload_file(local_path, s3_bucket,\
+          \ s3_key)\n        print(f\"Uploaded: s3://{s3_bucket}/{s3_key}\")\n\n \
+          \   for _, s3_key in uploads:\n        resp = s3.head_object(Bucket=s3_bucket,\
+          \ Key=s3_key)\n        print(f\"Verified: {s3_key} ({resp['ContentLength']}\
+          \ bytes)\")\n\n"
+        image: registry.access.redhat.com/ubi9/python-311:latest
+    exec-validate-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - validate_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'torch'\
+          \ 'numpy' 'joblib' 'scikit-learn'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.17.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef validate_model(\n    model_file: dsl.Input[dsl.Model],\n    scaler_file:\
+          \ dsl.Input[dsl.Artifact],\n    label_encoders_file: dsl.Input[dsl.Artifact],\n\
+          ):\n    \"\"\"Sanity-check the model with a sample prediction using real-world-like\
+          \ inputs.\"\"\"\n    import pickle\n\n    import joblib\n    import numpy\
+          \ as np\n    import torch\n    import torch.nn as nn\n\n    class StarlinkTransformer(nn.Module):\n\
+          \        def __init__(self, input_dim: int, num_heads: int = 4, dim_feedforward:\
+          \ int = 128, dropout: float = 0.1):\n            super().__init__()\n  \
+          \          self.transformer = nn.TransformerEncoder(\n                nn.TransformerEncoderLayer(\n\
+          \                    d_model=input_dim,\n                    nhead=num_heads,\n\
+          \                    dim_feedforward=dim_feedforward,\n                \
+          \    dropout=dropout,\n                    batch_first=True,\n         \
+          \       ),\n                num_layers=2,\n            )\n            self.fc\
+          \ = nn.Linear(input_dim, 1)\n\n        def forward(self, x: torch.Tensor)\
+          \ -> torch.Tensor:\n            x = self.transformer(x)\n            x =\
+          \ torch.mean(x, dim=1)\n            return self.fc(x)\n\n    with open(model_file.path,\
+          \ \"rb\") as f:\n        artifact = pickle.load(f)\n\n    model = StarlinkTransformer(input_dim=artifact[\"\
+          input_dim\"])\n    model.load_state_dict(artifact[\"model_state_dict\"])\n\
+          \    model.eval()\n\n    scaler = joblib.load(scaler_file.path)\n    label_encoders\
+          \ = joblib.load(label_encoders_file.path)\n\n    sample_data = {\n     \
+          \   \"latitude\": 33.87,\n        \"longitude\": -98.59,\n        \"elevation_m\"\
+          : 307.0,\n        \"visible_satellites\": 15,\n        \"serving_satellites\"\
+          : 3,\n        \"signal_loss_db\": 0.51,\n        \"season\": \"Summer\"\
+          ,\n        \"weather\": \"Clear\",\n    }\n\n    feature_names = artifact[\"\
+          features\"]\n    season_encoded = label_encoders[\"season\"].transform([sample_data[\"\
+          season\"]])[0]\n    weather_encoded = label_encoders[\"weather\"].transform([sample_data[\"\
+          weather\"]])[0]\n\n    raw_features = np.array([[\n        sample_data[\"\
+          latitude\"],\n        sample_data[\"longitude\"],\n        sample_data[\"\
+          elevation_m\"],\n        sample_data[\"visible_satellites\"],\n        sample_data[\"\
+          serving_satellites\"],\n        sample_data[\"signal_loss_db\"],\n     \
+          \   season_encoded,\n        weather_encoded,\n    ]])\n\n    features_scaled\
+          \ = scaler.transform(raw_features)\n    x_tensor = torch.FloatTensor(features_scaled)\n\
+          \n    with torch.no_grad():\n        predicted_qoe = model(x_tensor.unsqueeze(1)).item()\n\
+          \n    print(\"=\" * 50)\n    print(\"Starlink QoE Transformer \u2014 Validation\
+          \ (Sample Prediction)\")\n    print(f\"  Location : ({sample_data['latitude']},\
+          \ {sample_data['longitude']})\")\n    print(f\"  Elevation: {sample_data['elevation_m']}\
+          \ m\")\n    print(f\"  Season   : {sample_data['season']}\")\n    print(f\"\
+          \  Weather  : {sample_data['weather']}\")\n    print(f\"  Predicted QoE:\
+          \ {predicted_qoe:.2f}\")\n    print(\"=\" * 50)\n\n    if 0.0 <= predicted_qoe\
+          \ <= 100.0:\n        print(\"PASS: Predicted QoE is within the expected\
+          \ [0, 100] range.\")\n    else:\n        print(f\"WARNING: Predicted QoE\
+          \ ({predicted_qoe:.2f}) is outside [0, 100].\")\n\n"
+        image: registry.access.redhat.com/ubi9/python-311:latest
+pipelineInfo:
+  description: End-to-end ML pipeline for training, evaluating, exporting to ONNX,
+    and deploying the Starlink QoE Transformer model to S3 for KServe serving.
+  name: starlink-qoe-prediction-pipeline
+root:
+  dag:
+    tasks:
+      data-prep:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-data-prep
+        dependentTasks:
+        - importer
+        inputs:
+          artifacts:
+            dataset_file:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer
+        taskInfo:
+          name: data-prep
+      evaluate-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluate-model
+        dependentTasks:
+        - data-prep
+        - train-model
+        inputs:
+          artifacts:
+            model_file:
+              taskOutputArtifact:
+                outputArtifactKey: model_file
+                producerTask: train-model
+            x_test_file:
+              taskOutputArtifact:
+                outputArtifactKey: x_test_file
+                producerTask: data-prep
+            y_test_file:
+              taskOutputArtifact:
+                outputArtifactKey: y_test_file
+                producerTask: data-prep
+        taskInfo:
+          name: evaluate-model
+      export-to-onnx:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-export-to-onnx
+        dependentTasks:
+        - train-model
+        inputs:
+          artifacts:
+            model_file:
+              taskOutputArtifact:
+                outputArtifactKey: model_file
+                producerTask: train-model
+        taskInfo:
+          name: export-to-onnx
+      importer:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: artifact_uri
+        taskInfo:
+          name: importer
+      train-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-train-model
+        dependentTasks:
+        - data-prep
+        inputs:
+          artifacts:
+            x_train_file:
+              taskOutputArtifact:
+                outputArtifactKey: x_train_file
+                producerTask: data-prep
+            y_train_file:
+              taskOutputArtifact:
+                outputArtifactKey: y_train_file
+                producerTask: data-prep
+          parameters:
+            batch_size:
+              componentInputParameter: batch_size
+            learning_rate:
+              componentInputParameter: learning_rate
+            num_epochs:
+              componentInputParameter: num_epochs
+        taskInfo:
+          name: train-model
+      upload-model-to-s3:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-upload-model-to-s3
+        dependentTasks:
+        - data-prep
+        - export-to-onnx
+        inputs:
+          artifacts:
+            label_encoders_file:
+              taskOutputArtifact:
+                outputArtifactKey: label_encoders_file
+                producerTask: data-prep
+            onnx_model_file:
+              taskOutputArtifact:
+                outputArtifactKey: onnx_model_file
+                producerTask: export-to-onnx
+            scaler_file:
+              taskOutputArtifact:
+                outputArtifactKey: scaler_file
+                producerTask: data-prep
+          parameters:
+            s3_bucket:
+              componentInputParameter: s3_bucket
+            s3_endpoint:
+              componentInputParameter: s3_endpoint
+            s3_model_path:
+              componentInputParameter: s3_model_path
+        taskInfo:
+          name: upload-model-to-s3
+      validate-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-validate-model
+        dependentTasks:
+        - data-prep
+        - train-model
+        inputs:
+          artifacts:
+            label_encoders_file:
+              taskOutputArtifact:
+                outputArtifactKey: label_encoders_file
+                producerTask: data-prep
+            model_file:
+              taskOutputArtifact:
+                outputArtifactKey: model_file
+                producerTask: train-model
+            scaler_file:
+              taskOutputArtifact:
+                outputArtifactKey: scaler_file
+                producerTask: data-prep
+        taskInfo:
+          name: validate-model
+  inputDefinitions:
+    parameters:
+      artifact_uri:
+        defaultValue: s3://mybucket/data/starlink_data.csv
+        isOptional: true
+        parameterType: STRING
+      batch_size:
+        defaultValue: 128.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      learning_rate:
+        defaultValue: 0.001
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      num_epochs:
+        defaultValue: 200.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      s3_bucket:
+        defaultValue: mybucket
+        isOptional: true
+        parameterType: STRING
+      s3_endpoint:
+        defaultValue: https://s3.openshift-storage.svc:443
+        isOptional: true
+        parameterType: STRING
+      s3_model_path:
+        defaultValue: models/starlink-qoe
+        isOptional: true
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.17.0
+---
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-upload-model-to-s3:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: AWS_ACCESS_KEY_ID
+              secretKey: AWS_ACCESS_KEY_ID
+            - envVar: AWS_SECRET_ACCESS_KEY
+              secretKey: AWS_SECRET_ACCESS_KEY
+            optional: false
+            secretName: dashboard-dspa-secret
+            secretNameParameter:
+              runtimeValue:
+                constant: dashboard-dspa-secret

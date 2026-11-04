@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:telco-revenue-assurance:data-fetch-mcp:1",
+  "title": "Telco data-fetch MCP tool contract",
+  "description": "Input and output schemas for the single read-only fetch_customer_data FastMCP tool over streamable HTTP.",
+  "$defs": {
+    "Entity": {
+      "type": "string",
+      "enum": ["customers", "billing_cycles", "transactions", "qoe_samples", "predictions"],
+      "description": "Allowlisted application entity. There is no SQL/table-name passthrough.",
+      "examples": ["customers"]
+    },
+    "FieldAlias": {
+      "type": "string",
+      "enum": [
+        "customer_id",
+        "transaction_id",
+        "billing_cycle_id",
+        "qoe_sample_id",
+        "prediction_id",
+        "scoring_run_id",
+        "plan_type",
+        "dollar_weight",
+        "region_id",
+        "billing_cycle_start",
+        "total_bill_amount",
+        "churn_features",
+        "fraud_features",
+        "qoe_features",
+        "model_type",
+        "class_id",
+        "is_fraud",
+        "score",
+        "model_version"
+      ],
+      "description": "Public field alias. Output aliases are documented in x-entity-field-map and filter-only aliases in x-entity-filter-only-field-map; arbitrary columns and JSONB paths are rejected.",
+      "examples": ["customer_id", "dollar_weight"]
+    },
+    "Scalar": {
+      "oneOf": [
+        { "type": "string", "description": "Text or date/time value returned as text." },
+        { "type": "integer", "description": "Integer value." },
+        { "type": "number", "description": "Numeric value." },
+        { "type": "boolean", "description": "Boolean value." },
+        { "type": "null", "description": "Explicit null for an allowed nullable field." }
+      ],
+      "description": "One typed scalar field value; no database-specific objects are returned."
+    },
+    "Filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "operator", "value"],
+      "properties": {
+        "field": { "$ref": "#/$defs/FieldAlias" },
+        "operator": {
+          "type": "string",
+          "enum": ["eq", "in", "gte", "lte"],
+          "description": "Allowlisted comparison; in is an array membership test and gte/lte require an ordered field.",
+          "examples": ["eq"]
+        },
+        "value": {
+          "description": "Typed value compared through a bound parameter; in requires an array of at most 100 scalar values.",
+          "oneOf": [
+            { "$ref": "#/$defs/Scalar" },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": { "$ref": "#/$defs/Scalar" },
+              "description": "Bounded values used with the in operator."
+            }
+          ],
+          "examples": ["customer-00421"]
+        }
+      },
+      "description": "One allowlisted filter; filters in one request are combined with AND."
+    },
+    "Sort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "direction"],
+      "properties": {
+        "field": { "$ref": "#/$defs/FieldAlias" },
+        "direction": {
+          "type": "string",
+          "enum": ["asc", "desc"],
+          "description": "Sort direction; record ID is always appended as a stable tie-breaker.",
+          "examples": ["asc"]
+        }
+      },
+      "description": "Optional sort using an approved field alias."
+    },
+    "FetchCustomerDataInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity", "limit"],
+      "anyOf": [
+        { "required": ["ids"] },
+        { "required": ["filters"] }
+      ],
+      "properties": {
+        "entity": { "$ref": "#/$defs/Entity" },
+        "ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Stable ID belonging to the selected entity."
+          },
+          "description": "Optional stable record IDs. IDs and filters, when both present, are combined with AND.",
+          "examples": [["customer-00421", "customer-00517"]]
+        },
+        "field_aliases": {
+          "type": "array",
+          "maxItems": 19,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/FieldAlias" },
+          "description": "Fields to return. If omitted or empty, the entity's documented safe scalar fields are returned; response records always use the same attributes object shape.",
+          "examples": [["customer_id", "dollar_weight"]]
+        },
+        "filters": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": { "$ref": "#/$defs/Filter" },
+          "description": "Optional allowlisted filters; unknown field/entity combinations return INVALID_FIELD or INVALID_FILTER.",
+          "examples": [[{"field": "region_id", "operator": "eq", "value": "region-3"}]]
+        },
+        "sort": {
+          "type": ["object", "null"],
+          "description": "Optional approved sort key. Without it, results use the entity's stable source key in ascending order.",
+          "oneOf": [{ "$ref": "#/$defs/Sort" }, { "type": "null" }]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 100,
+          "description": "Maximum rows returned by one call.",
+          "examples": [50]
+        },
+        "cursor": {
+          "type": ["string", "null"],
+          "maxLength": 1024,
+          "description": "Opaque cursor from the previous page, or null for the first page.",
+          "examples": [null]
+        }
+      },
+      "description": "Read-only bounded query. Arbitrary SQL, table names, URLs, and unrecognized JSON paths are not accepted."
+    },
+    "FeatureMap": {
+      "type": "object",
+      "description": "Stable alias containing the model feature names and typed scalar values from the deployment's validated feature manifest.",
+      "propertyNames": { "type": "string", "minLength": 1 },
+      "additionalProperties": { "$ref": "#/$defs/Scalar" }
+    },
+    "AttributeValue": {
+      "oneOf": [
+        { "$ref": "#/$defs/Scalar" },
+        { "$ref": "#/$defs/FeatureMap" }
+      ],
+      "description": "A scalar alias value or a named model feature map."
+    },
+    "FetchRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity", "record_id", "attributes"],
+      "properties": {
+        "entity": { "$ref": "#/$defs/Entity" },
+        "record_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable ID in the selected entity namespace.",
+          "examples": ["customer-00421"]
+        },
+        "attributes": {
+          "type": "object",
+          "description": "Only requested or default allowlisted aliases; no ORM or SQL row representation.",
+          "propertyNames": { "$ref": "#/$defs/FieldAlias" },
+          "additionalProperties": { "$ref": "#/$defs/AttributeValue" },
+          "examples": [{"customer_id": "customer-00421", "dollar_weight": 76.25}]
+        }
+      }
+    },
+    "FetchCustomerDataOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["records", "next_cursor"],
+      "properties": {
+        "records": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/FetchRecord" },
+          "description": "Bounded typed records in deterministic order."
+        },
+        "next_cursor": {
+          "type": ["string", "null"],
+          "maxLength": 1024,
+          "description": "Opaque next-page cursor, or null when no page remains.",
+          "examples": [null]
+        }
+      }
+    },
+    "McpError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "request_id", "retryable", "details"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": ["INVALID_ENTITY", "INVALID_FIELD", "INVALID_FILTER", "RESULT_LIMIT_EXCEEDED", "DATABASE_UNAVAILABLE"],
+          "description": "Stable data-fetch MCP error code from contracts/errors.md.",
+          "examples": ["INVALID_FIELD"]
+        },
+        "message": {
+          "type": "string",
+          "description": "Safe error message with no SQL or driver details.",
+          "examples": ["Field alias is not allowed for this entity."]
+        },
+        "request_id": {
+          "type": "string",
+          "description": "Correlation identifier for server logs.",
+          "examples": ["req_01J8Z2N5M9KG"]
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether one retry is allowed by contracts/errors.md.",
+          "examples": [false]
+        },
+        "details": {
+          "type": "object",
+          "description": "Safe field or limit details; empty when not applicable.",
+          "additionalProperties": true
+        }
+      }
+    }
+  },
+  "x-tool-definition": {
+    "name": "fetch_customer_data",
+    "description": "Read allowlisted customer, billing-cycle, transaction, QoE sample, or persisted prediction data by stable IDs and approved filters.",
+    "input_schema": "#/$defs/FetchCustomerDataInput",
+    "output_schema": "#/$defs/FetchCustomerDataOutput"
+  },
+  "x-entity-field-map": {
+    "customers": ["customer_id", "plan_type", "dollar_weight", "region_id", "churn_features", "qoe_features"],
+    "billing_cycles": ["billing_cycle_id", "customer_id", "billing_cycle_start", "total_bill_amount", "churn_features"],
+    "transactions": ["transaction_id", "customer_id", "plan_type", "fraud_features"],
+    "qoe_samples": ["qoe_sample_id", "customer_id", "region_id", "qoe_features"],
+    "predictions": ["prediction_id", "scoring_run_id", "model_type", "customer_id", "transaction_id", "class_id", "is_fraud", "score", "model_version"]
+  },
+  "x-entity-filter-only-field-map": {
+    "transactions": ["is_fraud"]
+  },
+  "x-field-alias-semantics": {
+    "customers.churn_features": "Use the latest billing_cycles row by billing_cycle_start, with billing_cycle_id as the stable tie-breaker. Exclude CustomerID, HasChurned, and cycle/date fields; preserve the artifact manifest's remaining semantic feature names.",
+    "billing_cycles.churn_features": "Return the selected cycle's model features with CustomerID, HasChurned, and cycle/date fields excluded.",
+    "transactions.fraud_features": "Return the source model features excluding the fraud target label; leave Plan_Type categorical so prediction-tools can apply training-time one-hot encoding with drop_first semantics.",
+    "transactions.is_fraud filter-only": "May filter labeled transaction rows but is never returned as an input feature to the fraud model.",
+    "customers.qoe_features": "Use the assigned qoe_samples row with the lowest stable qoe_sample_id if more than one sample is assigned. Return raw fields latitude, longitude, elevation_m, visible_satellites, serving_satellites, signal_loss_db, season, and weather; prediction-tools applies the scaler and label encoders.",
+    "qoe_samples.qoe_features": "Return the same eight raw QoE fields as the selected sample; season and weather remain labels until prediction-tools applies the configured label encoders."
+  },
+  "x-contract-guarantees": {
+    "side_effects": "Read-only. The MCP service performs no application database mutations.",
+    "errors": "Tool errors use McpError with INVALID_ENTITY, INVALID_FIELD, INVALID_FILTER, RESULT_LIMIT_EXCEEDED, or DATABASE_UNAVAILABLE.",
+    "timeouts_retries": "IDs, filter count, page size, and result rows are bounded. Callers set a deadline and may retry one transient DATABASE_UNAVAILABLE error.",
+    "ordering": "Results sort by an approved requested field plus stable record ID, or by stable source key ascending when no sort is specified.",
+    "versioning": "Adding an alias or response field is additive. Renaming/removing a tool, entity, alias, or response field requires a new MCP schema version."
+  }
+}

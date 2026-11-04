@@ -1,24 +1,31 @@
-```mermaid
 flowchart TB
-  User -->|HTTP| Route[OpenShift Route]
-  Route --> Frontend[React Dashboard]
-  Frontend -->|REST 🔒| Backend[FastAPI API]
-  Backend -->|SQL 🔒| DB{{PostgreSQL + pgvector}}
-  Backend --> OGX{{ogx-ai}}
-  OGX -->|OpenAI API| LLM{{llm-service / vLLM}}
-  OGX -->|Python SDK| PredTools[Prediction Tools + Cache]
-  OGX -->|Python SDK| DataFetch[Data Fetch Tool]
-  PredTools -->|Customer IDs| DataFetch
-  DataFetch -->|SQL 🔒| DB
-  PredTools -->|KServe v2 🔒| ChurnModel[KServe: Churn Model]
-  PredTools -->|KServe v2 🔒| FraudModel[KServe: Fraud Model]
-  PredTools -->|KServe v2 🔒| QoEModel[KServe: QoE Model]
-  DataGen[Data Generator] -->|SQL| DB
+  Analyst[Analyst browser] -->|HTTPS / OAuth| Route[OpenShift OAuth-protected Route]
+  Route -->|/| Frontend[React Dashboard SPA]
+  Route -->|/api/v1| Backend[FastAPI API]
+  Frontend -.->|same-origin REST requests| Backend
+  Backend -->|SQL 🔒 (metrics, scoring, chat idempotency)| DB{{PostgreSQL + pgvector}}
+  Backend -->|Responses API| OGX{{OGX / ogx-ai}}
+  Backend -->|MCP streamable HTTP 🔒| PredTools[Prediction MCP Service]
+  Backend -->|MCP streamable HTTP 🔒| DataFetch[Data Fetch MCP Service]
+  OGX -->|OpenAI-compatible API| LLM{{llm-service / vLLM}}
+  OGX -->|SQL 🔒| DB
+  OGX -->|MCP streamable HTTP 🔒| PredTools
+  OGX -->|MCP streamable HTTP 🔒| DataFetch
+  PredTools -->|MCP streamable HTTP 🔒| DataFetch
+  DataFetch -->|SQL 🔒 read-only| DB
+  PredTools -->|KServe V2 🔒| ChurnModel[KServe: Churn LightGBM v4]
+  PredTools -->|KServe V2 🔒| FraudModel[KServe: RAFM Fraud ONNX]
+  PredTools -->|KServe V2 🔒| QoEModel[KServe: Starlink QoE ONNX]
+  ArtifactStore[(External S3-compatible model storage)] -->|model artifacts 🔒| ChurnModel
+  ArtifactStore -->|model artifacts 🔒| FraudModel
+  ArtifactStore -->|model and preprocessing artifacts 🔒| QoEModel
+  ArtifactStore -->|QoE preprocessing sidecars 🔒| PredTools
+  DataGen[Data Generator] -->|SQL 🔒| DB
+  HF[(Hugging Face datasets)] -->|source rows| DataGen
 
   subgraph legend [Legend]
     direction LR
     L_other[Not a subchart]
     L_chart{{Ready subchart}}
-    L_sec["🔒 = Auth/secrets"]
+    L_sec["🔒 = Auth, secrets, or restricted access"]
   end
-```

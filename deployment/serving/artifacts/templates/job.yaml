@@ -1,0 +1,101 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "telco-artifacts.jobName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "telco-artifacts.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ .Values.loader.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "telco-artifacts.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- with .Values.loader.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: install-s3-client
+          image: {{ .Values.loader.dependencyImage | quote }}
+          command: ["python3", "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir", "--no-compile", "--target", "/s3-client", "-r", "/loader/s3-requirements.txt"]
+          env:
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: loader
+              mountPath: /loader
+              readOnly: true
+            - name: s3-client
+              mountPath: /s3-client
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: load-artifacts
+          image: {{ .Values.loader.image | quote }}
+          command: ["python", "/loader/load_bundle.py", "--manifest", "/loader/bundle.json", "--destination", "/artifacts"]
+          env:
+            - name: PYTHONPATH
+              value: /s3-client
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: AWS_EC2_METADATA_DISABLED
+              value: "true"
+            {{- range $key := list "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "AWS_S3_ENDPOINT" "AWS_S3_BUCKET" "AWS_DEFAULT_REGION" }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.connectionSecret }}
+                  key: {{ $key }}
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            {{- toYaml .Values.loader.resources | nindent 12 }}
+          volumeMounts:
+            - name: loader
+              mountPath: /loader
+              readOnly: true
+            - name: s3-client
+              mountPath: /s3-client
+              readOnly: true
+            - name: artifacts
+              mountPath: /artifacts
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: loader
+          configMap:
+            name: {{ include "telco-artifacts.jobName" . }}
+        - name: s3-client
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.claimName }}

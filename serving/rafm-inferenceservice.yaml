@@ -1,0 +1,61 @@
+#[root@jumphost ~]# oc get inferenceservices.serving.kserve.io -n showcase 
+#NAME               URL                                                           READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION   AGE
+#fraud-prediction   https://fraud-prediction-showcase.apps.ptnr2.cert4.bos2.lab   True                                                                  121m
+
+apiVersion: v1
+items:
+- apiVersion: serving.kserve.io/v1beta1
+  kind: InferenceService
+  metadata:
+    annotations:
+      modelFormat: onnx
+      opendatahub.io/connection-path: models/
+      opendatahub.io/connections: my-data-connection
+      opendatahub.io/hardware-profile-name: default-profile
+      opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+      opendatahub.io/hardware-profile-resource-version: "2014103"
+      opendatahub.io/model-type: predictive
+      openshift.io/description: test rafm model serving
+      openshift.io/display-name: fraud-prediction
+      security.opendatahub.io/enable-auth: "true"
+      serving.kserve.io/deploymentMode: Standard
+    creationTimestamp: "2026-10-08T15:25:17Z"
+    finalizers:
+    - inferenceservice.finalizers
+    - odh.inferenceservice.finalizers
+    generation: 1
+    labels:
+      networking.kserve.io/visibility: exposed
+      opendatahub.io/dashboard: "true"
+    name: fraud-prediction
+    namespace: showcase
+    resourceVersion: "54212330"
+    uid: 5a18f8c1-f853-45dd-a46c-1b2344babfa6
+  spec:
+    predictor:
+      automountServiceAccountToken: false
+      deploymentStrategy:
+        type: RollingUpdate
+      maxReplicas: 1
+      minReplicas: 1
+      model:
+        modelFormat:
+          name: onnx
+          version: "1"
+        name: ""
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "2"
+            memory: 4Gi
+        runtime: fraud-prediction
+        storage:
+          key: my-data-connection
+          path: models/
+      serviceAccountName: my-data-connection-sa
+      timeout: 30
+kind: List
+metadata:
+  resourceVersion: ""

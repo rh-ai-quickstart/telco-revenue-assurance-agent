@@ -1,0 +1,129 @@
+{
+  "observed_at": "2026-10-26T23:36:42.021813+00:00",
+  "models": [
+    {
+      "name": "churn-prediction",
+      "generation": 3,
+      "ready": true,
+      "storage": {
+        "key": "telco-churn-model-storage",
+        "path": "models/churn-serving/1ea4bc0e-f1c7-44af-8d80-58dc53eaa805"
+      },
+      "pods": [
+        {
+          "name": "churn-prediction-predictor-6654b5dc4c-vdtkd",
+          "phase": "Running",
+          "init": [
+            {
+              "name": "storage-initializer",
+              "exitCode": 0
+            }
+          ],
+          "containers": [
+            {
+              "name": "kserve-container",
+              "ready": true,
+              "restarts": 0
+            },
+            {
+              "name": "kube-rbac-proxy",
+              "ready": true,
+              "restarts": 0
+            }
+          ],
+          "loaded_files": [
+            "model-settings.json",
+            "model.bst"
+          ],
+          "load_evidence": [
+            "2026-10-26 23:35:52,734 [mlserver][churn-prediction:1ea4bc0e-f1c7-44af-8d80-58dc53eaa805] INFO - Loaded model 'churn-prediction' successfully.",
+            "2026-10-26 23:35:52,736 [mlserver][churn-prediction:1ea4bc0e-f1c7-44af-8d80-58dc53eaa805] INFO - Loaded model 'churn-prediction' successfully."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fraud-prediction",
+      "generation": 3,
+      "ready": true,
+      "storage": {
+        "key": "telco-fraud-model-storage",
+        "path": "models/fraud"
+      },
+      "pods": [
+        {
+          "name": "fraud-prediction-predictor-84f7c75bc7-qzrcx",
+          "phase": "Running",
+          "init": [
+            {
+              "name": "storage-initializer",
+              "exitCode": 0
+            }
+          ],
+          "containers": [
+            {
+              "name": "kserve-container",
+              "ready": true,
+              "restarts": 0
+            },
+            {
+              "name": "kube-rbac-proxy",
+              "ready": true,
+              "restarts": 0
+            }
+          ],
+          "loaded_files": [
+            "1/model.onnx"
+          ],
+          "load_evidence": [
+            "2026-10-26 23:36:15,752 [mlserver][fraud-prediction:4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7] INFO - Loaded model 'fraud-prediction' successfully.",
+            "2026-10-26 23:36:15,753 [mlserver][fraud-prediction:4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7] INFO - Loaded model 'fraud-prediction' successfully."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "starlink-qoe",
+      "generation": 3,
+      "ready": true,
+      "storage": {
+        "key": "telco-qoe-model-storage",
+        "path": "models/starlink-qoe"
+      },
+      "pods": [
+        {
+          "name": "starlink-qoe-predictor-fd546db-x45q4",
+          "phase": "Running",
+          "init": [
+            {
+              "name": "storage-initializer",
+              "exitCode": 0
+            }
+          ],
+          "containers": [
+            {
+              "name": "kserve-container",
+              "ready": true,
+              "restarts": 0
+            },
+            {
+              "name": "kube-rbac-proxy",
+              "ready": true,
+              "restarts": 0
+            }
+          ],
+          "loaded_files": [
+            "1/model.onnx",
+            "artifacts/label_encoders.joblib",
+            "artifacts/scaler.joblib"
+          ],
+          "load_evidence": [
+            "2026-10-26 23:35:55,567 [mlserver][starlink-qoe:8b213f6f-abc8-45be-bbaf-7230ffffcd3f] INFO - Loaded model 'starlink-qoe' successfully.",
+            "2026-10-26 23:35:55,568 [mlserver][starlink-qoe:8b213f6f-abc8-45be-bbaf-7230ffffcd3f] INFO - Loaded model 'starlink-qoe' successfully."
+          ]
+        }
+      ]
+    }
+  ],
+  "all_models_ready": true
+}

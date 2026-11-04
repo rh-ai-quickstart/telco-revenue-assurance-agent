@@ -1,0 +1,39 @@
+observed_at: '2026-10-26T23:40:03.247110+00:00'
+stage: models-serving
+helm_revision: 3
+summary:
+  expected_resource_count: 82
+  expected_healthy_resources: 80
+  expected_unhealthy_resources: 2
+  healthy_resources: 275
+  unhealthy_resources: 2
+  historical_failed_pods: 7
+  historical_failed_workflows: 3
+  missing_expected_resources: 0
+  e2e_executed_this_scan: false
+unhealthy_resources:
+- name: prediction-tools
+  kind: Deployment
+  brief_reason: 'Intentionally scaled to0 for models-only infrastructure rollout;
+    application review and coordinated1replica rollout still required. '
+  debug_attempts: 1
+- name: prediction-tools
+  kind: Service
+  brief_reason: 0 ready endpoint addresses.
+  debug_attempts: 0
+all_model_services_ready: true
+live_model_probe: All three models passed verified HTTPS, anonymous401, authorized200,
+  correct model versions and100actualrows; separate probe evidence owned by storage
+  verifier.
+probe_cleanup: Temporary probe Job, owned Pod and ConfigMap confirmed absent by storage
+  verifier.
+full_application_e2e: false
+validation:
+  model_source_assets: All ten original hashes and serving contract passed
+  storage_helper_tests: 9 passed
+  storage_helper_test_command: uv --cache-dir /tmp/telco-training-uv-cache run --frozen
+    --with boto3==1.43.119 pytest deployment/models/tests/test_prepare_storage.py
+    -q
+  ruff: passed deployment/models/prepare_storage.py
+  git_diff_check: passed
+credential_values_recorded: false

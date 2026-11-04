@@ -1,0 +1,16 @@
+{
+  "published_at": "2026-11-02T13:35:39Z",
+  "image": "quay.io/yelias/prediction-tools:0.1.0-models-2a6e269567cf3abd",
+  "source_fingerprint": "2a6e269567cf3abdfb257010e9da127690b78aa4848e9f71f21c3f55940db5e4",
+  "local_image_id": "b7aadbdb9c84766563d6f306f1ea03ac88d4c39a76788dfa916d08c2573a1968",
+  "source_files_verified": {
+    "packages/prediction-tools/src/prediction_tools/features.py": "6bda9f5bdf9ecba0b1e645e5c180c5d07117ecd9738320508f4b32b1e4263d58",
+    "packages/prediction-tools/src/prediction_tools/kserve_client.py": "0dff60aada1a6edf2e4a66569d5271d9f8e4e7cba9a4c00af298212607d0f7be"
+  },
+  "source_hashes_match_reviewed_build": true,
+  "push_digest": "sha256:6a1452c28ea3146925a330723da72c89092d532e5d59b914949c336632d89169",
+  "immutable_reference": "quay.io/yelias/prediction-tools@sha256:6a1452c28ea3146925a330723da72c89092d532e5d59b914949c336632d89169",
+  "registry_digest_verified": true,
+  "user_approval": "User approved applying the prepared fix and publishing the updated app.",
+  "verification": "skopeo inspect digest matches podman push digestfile"
+}

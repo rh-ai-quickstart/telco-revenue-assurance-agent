@@ -1,0 +1,133 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "telco.fullname" . }}-migration
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "migration") | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-weight: "1"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "telco.componentSelector" (dict "root" . "component" "migration") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "telco.serviceAccount" (dict "root" . "suffix" "migration") }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.securityContext.pod | nindent 8 }}
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ printf "%s:%s" .Values.migration.image .Values.image.tag | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-c"]
+          args:
+            - |
+              import asyncio
+              import os
+              import time
+              import asyncpg
+
+              dsn = os.environ["DATABASE_URL"]
+              dsn = dsn.replace("postgresql+asyncpg://", "postgresql://", 1)
+              dsn = dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+
+              async def wait_for_database():
+                  deadline = time.monotonic() + 300
+                  while time.monotonic() < deadline:
+                      connection = None
+                      try:
+                          connection = await asyncpg.connect(dsn=dsn, timeout=10)
+                          await connection.fetchval("SELECT 1")
+                          return
+                      except Exception:
+                          await asyncio.sleep(5)
+                      finally:
+                          if connection is not None:
+                              await connection.close()
+                  raise SystemExit("PostgreSQL did not become ready within 5 minutes.")
+
+              asyncio.run(wait_for_database())
+          env:
+            - name: MIGRATION_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.roles.migration.secretName }}
+                  key: {{ .Values.database.roles.migration.dsnKey }}
+            # ApiSettings used by Alembic consumes DATABASE_URL; keep the frozen
+            # contract key available above and alias it for the current implementation.
+            - name: DATABASE_URL
+              value: $(MIGRATION_DATABASE_URL)
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: HOME
+              value: /tmp
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 512Mi
+      containers:
+        - name: apply-migrations
+          image: {{ printf "%s:%s" .Values.migration.image .Values.image.tag | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          workingDir: /workspace
+          command: ["alembic"]
+          args:
+            - -c
+            - packages/api/alembic.ini
+            - upgrade
+            - head
+          env:
+            - name: MIGRATION_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.roles.migration.secretName }}
+                  key: {{ .Values.database.roles.migration.dsnKey }}
+            # Alembic currently constructs ApiSettings, which requires these
+            # valid in-cluster settings even though migrations do not call them.
+            - name: DATABASE_URL
+              value: $(MIGRATION_DATABASE_URL)
+            - name: OGX_BASE_URL
+              value: {{ .Values.api.ogxBaseUrl | quote }}
+            - name: OGX_MODEL_ID
+              value: {{ .Values.api.ogxModelId | quote }}
+            - name: PREDICTION_MCP_URL
+              value: {{ .Values.api.predictionMcpUrl | quote }}
+            - name: DATA_FETCH_MCP_URL
+              value: {{ .Values.api.dataFetchMcpUrl | quote }}
+            - name: SCORING_BATCH_SIZE
+              value: {{ .Values.api.scoringBatchSize | quote }}
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: HOME
+              value: /tmp
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: tmp
+          emptyDir: {}

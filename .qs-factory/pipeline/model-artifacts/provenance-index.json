@@ -1,0 +1,226 @@
+{
+  "saved_at": "2026-10-26T23:40:20.944028+00:00",
+  "scope": "Sanitized model provenance, local/runtime responses, unapplied review proposals and live serving/auth preflight only. No datasets, fitted model binaries, pickles or credentials. Full MCP/application E2E remains pending.",
+  "files": [
+    {
+      "path": "churn-null-category-artifact-evidence.json",
+      "size_bytes": 482,
+      "sha256": "727f6ca1a6fbe2d657e8f9aaa1f03b728161aa139e88f258daf972120a13ceeb"
+    },
+    {
+      "path": "debug-prediction-tools.yaml",
+      "size_bytes": 10798,
+      "sha256": "1d76c57a642affa3c0dd722c8a25b823862e063eec6514483787a923433ac30b"
+    },
+    {
+      "path": "derived-churn-serving-upload.json",
+      "size_bytes": 1047,
+      "sha256": "ec611b3b256894e9f956534bed71fdf3151be5279fdd00f87fc06898c0f498f3"
+    },
+    {
+      "path": "derived-churn-serving.json",
+      "size_bytes": 1657,
+      "sha256": "a47bd189b50378e4e668134393ecc4780db11b85e9ab563c38327136e35e76de"
+    },
+    {
+      "path": "e2e-churn-null-category-types.json",
+      "size_bytes": 1281,
+      "sha256": "cd571aa1ca2ea2ad4ed4aa1ecda3f4c09a6e768dab7106c411279f1ca5c095ac"
+    },
+    {
+      "path": "feature-bundle-manifest.json",
+      "size_bytes": 1258,
+      "sha256": "068f1d68882d974509c7abb4a6a68b9909b95746640ed47caa54a828cb3aa661"
+    },
+    {
+      "path": "feature-bundle-upload.json",
+      "size_bytes": 2228,
+      "sha256": "6e3f0a30569f7c7edc7c1b32d9c74b1d16ab9db8bee167c60eaa2335048b351e"
+    },
+    {
+      "path": "feature-manifests/churn.json",
+      "size_bytes": 529,
+      "sha256": "1dba9f18641336ab9e1acfd4825d2533279b4527b5f82a56f7ca9aeaaffb6e3b"
+    },
+    {
+      "path": "feature-manifests/fraud.json",
+      "size_bytes": 590,
+      "sha256": "fc3fa1f51aa53c5d64e67a74dfe24022f5fb3cf34369d7eeca276334dbd9c375"
+    },
+    {
+      "path": "feature-manifests/qoe.json",
+      "size_bytes": 463,
+      "sha256": "c7b718c6bbba099e39bc85ebaf189a1fc5298a02e3b55c466e263c493ecd10ab"
+    },
+    {
+      "path": "live-serving/churn-request.json",
+      "size_bytes": 24847,
+      "sha256": "afcc87eeb9d44026ff718be4d51c3849ac05ee046a6f5086ea4c0c1631a77cea"
+    },
+    {
+      "path": "live-serving/cleanup.json",
+      "size_bytes": 851,
+      "sha256": "270c736421ee98b8d0c0d26fdad3ead9b49e7d48b8d5b37290d063ec1211be5f"
+    },
+    {
+      "path": "live-serving/config.json",
+      "size_bytes": 9552,
+      "sha256": "cfec25de00d04aebaee0338c530c531b0f16f8007cc6d4bf7715d2eb2d050909"
+    },
+    {
+      "path": "live-serving/creation.json",
+      "size_bytes": 1030,
+      "sha256": "36b45f350e569fb96bb29519cd6c3d09c1e0155391465588927a3e132239af78"
+    },
+    {
+      "path": "live-serving/fraud-request.json",
+      "size_bytes": 25869,
+      "sha256": "b9078f59c04d9a036b3144137e54d73c7388a646e73649abc0a4e54bab85f5b9"
+    },
+    {
+      "path": "live-serving/live-serving-auth-preflight.json",
+      "size_bytes": 20949,
+      "sha256": "0dd4d4d0d2df0961aaeba78d0dc34d0c81e2cb4352e62567c24f8beaf9f94af6"
+    },
+    {
+      "path": "live-serving/plan.json",
+      "size_bytes": 801,
+      "sha256": "f5ebfed821671ed4a199b275cbe1fee003e7ff64faeab941346bc29ee2c0ef9a"
+    },
+    {
+      "path": "live-serving/qoe-request.json",
+      "size_bytes": 23251,
+      "sha256": "843f32b4ade21b69ea1716d5949220666c7267aad9e1878a7e4427990915a198"
+    },
+    {
+      "path": "live-serving/request-runtime-validation.json",
+      "size_bytes": 316,
+      "sha256": "ada60f49774971ba6b51743659de1038cc25af9852d77de0a439f5f9f087fb0a"
+    },
+    {
+      "path": "live-serving/resources.yaml",
+      "size_bytes": 109694,
+      "sha256": "a7e54a2b3d60bc17bbdb53d155e6a8a877b21e89f6f738971e1fa311fa57973e"
+    },
+    {
+      "path": "live-serving/summary.json",
+      "size_bytes": 1228,
+      "sha256": "55ccbfc2118f43d3138d67af611493465d2b4cb51c4fd40829e0d752cfbe9c8c"
+    },
+    {
+      "path": "model-serving-provenance.json",
+      "size_bytes": 1126,
+      "sha256": "1076517b82ae2427dd920d95059b0ab9ed54142e4f520020f82459a1dedfea05"
+    },
+    {
+      "path": "model-serving-readiness.json",
+      "size_bytes": 3795,
+      "sha256": "25ba23e7d9abf2358c8c835999dc4e3aa31e7912e4fa5e3938a03a171991dd69"
+    },
+    {
+      "path": "model-serving-recovery.md",
+      "size_bytes": 2118,
+      "sha256": "6995ba7aa23c62982e7e20bc5736d6a40b5f9b4325778546303f7b1929906b5d"
+    },
+    {
+      "path": "model-source-integrity-after-artifacts.json",
+      "size_bytes": 1867,
+      "sha256": "dfabcd44defc2092c057d210851c4318f28da0ee9a76313e3e6862e723484176"
+    },
+    {
+      "path": "model-storage-declared-field-restoration.json",
+      "size_bytes": 1680,
+      "sha256": "80132179994bf599d6d4ea901250a9b126922605982d26a253eec5937e1c9322"
+    },
+    {
+      "path": "model-storage-protocol-admission.json",
+      "size_bytes": 1585,
+      "sha256": "a444ce32113e3106ce95e77e39f36c29ca5087cc4c1dd20e636e97b24e626f22"
+    },
+    {
+      "path": "model-storage-protocol-fix.json",
+      "size_bytes": 536,
+      "sha256": "b9212201623180ca72f298a87175f6d891362d6e76cd7cfe69a11792274ea745"
+    },
+    {
+      "path": "models-only-deployment.yaml",
+      "size_bytes": 3088,
+      "sha256": "58b339f99e9b667b702652d7094c7e9c1ded965baf26d996360004edfcaf9335"
+    },
+    {
+      "path": "models-only-values.yaml",
+      "size_bytes": 977,
+      "sha256": "8f4373ba6ae4c377b67d71c4a13693ee5fa2fa9e2f97a9c43b4570028bd5cb01"
+    },
+    {
+      "path": "original-adapter-runtime-failures.json",
+      "size_bytes": 475,
+      "sha256": "b30c629a534f574debb4cefa079330d498d2b362979889f16c49f3927fdf399b"
+    },
+    {
+      "path": "proposed-adapter-runtime-validation.json",
+      "size_bytes": 527,
+      "sha256": "8c10d6e3f045de2115caa7d73725ad73570b24d3af7170e798da3dd8a1c80ba5"
+    },
+    {
+      "path": "proposed-churn-adapter.patch",
+      "size_bytes": 14907,
+      "sha256": "1b44df017aec8e890acf9f2f0d26e20fe62ddf18d6d3dfd43f0048d0b0401ff2"
+    },
+    {
+      "path": "proposed-churn-features-source-parity.json",
+      "size_bytes": 751,
+      "sha256": "5730744b88ece7772cc7aed1bed9711d5f910b33a4ef62b2029d7b863deb995a"
+    },
+    {
+      "path": "proposed-churn-features.patch",
+      "size_bytes": 4574,
+      "sha256": "7b722c73776a2100606f4d6a3ce70e8d9d3d148a45415ece82e77c431265ab12"
+    },
+    {
+      "path": "reviewed-image.json",
+      "size_bytes": 2063,
+      "sha256": "b348ef096916ad1c88773b46ae7972bcc7826576d216fd66a0609317ba740936"
+    },
+    {
+      "path": "runtime-responses/churn-response.json",
+      "size_bytes": 3216,
+      "sha256": "3d320e76dd8ef402d1f795a111df02af4376794ea71fe97a4361ad6687b51bad"
+    },
+    {
+      "path": "runtime-responses/fraud-response.json",
+      "size_bytes": 1453,
+      "sha256": "70f4a9d7fbab779f8574894c6ab1182072594589a47c59d59fde67a457f3231a"
+    },
+    {
+      "path": "runtime-responses/qoe-response.json",
+      "size_bytes": 3032,
+      "sha256": "2f632836754d5803f6fbdd74fff6800210a82d9747d7e1a2de377a8b5f114b1a"
+    },
+    {
+      "path": "serving-artifact-read-proof.json",
+      "size_bytes": 2410,
+      "sha256": "7aff3504218b34f742444c7eac4789d83d25750adcf77bf19e328b6d3d1148b6"
+    },
+    {
+      "path": "trained-artifact-downloads.json",
+      "size_bytes": 19995,
+      "sha256": "cad3b0186406833281b39a8e1bfee39a1b8eb6d0becfa47b54c57b829d6cb49d"
+    },
+    {
+      "path": "trained-artifact-input-provenance.json",
+      "size_bytes": 12641,
+      "sha256": "dca3a2e8b3036380c030a0a2dfcfc25a7eb4f08728acf3b18347e11da3412042"
+    },
+    {
+      "path": "trained-artifact-metadata.json",
+      "size_bytes": 11422,
+      "sha256": "d9ec86f9e938fbbf83b5b86598c69f0cbe9b6f529258da18b870faf1e07410c9"
+    },
+    {
+      "path": "trained-runtime-probe.json",
+      "size_bytes": 1729,
+      "sha256": "36b57a412fce38ccc52bc5c84e92e9349711d27200a46d2eef058ac7fef848d1"
+    }
+  ]
+}

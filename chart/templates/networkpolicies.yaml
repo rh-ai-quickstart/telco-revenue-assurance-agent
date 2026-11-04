@@ -1,0 +1,219 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "telco.fullname" . }}-default-deny-ingress
+  labels:
+    {{- include "telco.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "telco.fullname" . }}-frontend-ingress
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "telco.componentSelector" (dict "root" . "component" "frontend") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressNamespaceSelector | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.oauthProxy.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "telco.fullname" . }}-api-ingress
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "api") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "telco.componentSelector" (dict "root" . "component" "api") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "frontend") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.api.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "telco.fullname" . }}-ogx-ingress
+  labels:
+    {{- include "telco.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ogx-ai
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "api") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8321
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "telco.fullname" . }}-prediction-tools-ingress
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "prediction-tools") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "telco.componentSelector" (dict "root" . "component" "prediction-tools") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "api") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ogx-ai
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.predictionTools.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "telco.fullname" . }}-data-fetch-ingress
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "data-fetch-tool") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "telco.componentSelector" (dict "root" . "component" "data-fetch-tool") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "api") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "prediction-tools") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ogx-ai
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.dataFetchTool.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "telco.fullname" . }}-database-ingress
+  labels:
+    {{- include "telco.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pgvector
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "api") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "data-fetch-tool") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "data-generator") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "migration") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "db-role-init") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" . "component" "db-grants") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ogx-ai
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.database.port }}
+{{ range $entry := list
+  (dict "serviceName" .Values.modelServing.churn.serviceName "component" "prediction-tools")
+  (dict "serviceName" .Values.modelServing.fraud.serviceName "component" "prediction-tools")
+  (dict "serviceName" .Values.modelServing.qoe.serviceName "component" "prediction-tools")
+-}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "telco.fullname" $ }}-{{ $entry.serviceName }}-ingress
+  labels:
+    {{- include "telco.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      serving.kserve.io/inferenceservice: {{ $entry.serviceName }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "telco.componentSelector" (dict "root" $ "component" $entry.component) | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8443
+{{ end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "telco.fullname" . }}-llm-ingress
+  labels:
+    {{- include "telco.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      serving.kserve.io/inferenceservice: llama-3-1-8b-instruct
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ogx-ai
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: 8080
+{{- end }}

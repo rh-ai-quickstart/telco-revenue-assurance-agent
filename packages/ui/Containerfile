@@ -1,0 +1,20 @@
+FROM registry.access.redhat.com/ubi9/nodejs-22:1 AS build
+USER 0
+WORKDIR /workspace
+ENV COREPACK_HOME=/tmp/corepack \
+    npm_config_cache=/tmp/npm-cache
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY packages/ui/package.json packages/ui/package.json
+COPY packages/configs/tsconfig.base.json packages/configs/tsconfig.base.json
+RUN npm install --global pnpm@10.6.5
+RUN pnpm install --frozen-lockfile
+
+COPY packages/ui packages/ui
+RUN pnpm --filter ui run build
+
+FROM registry.access.redhat.com/ubi9/nginx-124:1
+COPY --from=build --chown=0:0 /workspace/packages/ui/dist /usr/share/nginx/html
+COPY --chown=0:0 packages/ui/nginx.conf /etc/nginx/nginx.conf
+EXPOSE 8080
+CMD ["nginx", "-e", "/dev/stderr", "-g", "daemon off;"]

@@ -1,0 +1,519 @@
+spec_version: 1
+quickstart_name: 'Telco Revenue Assurance Agent: Quality, Churn & Fraud Insights'
+slug: telco-revenue-assurance-agent
+skill: rh-qs-implement
+created_at: '2026-10-21T12:54:25Z'
+packages:
+  ui:
+    env_vars:
+    - name: VITE_API_BASE_URL
+      description: Same-origin API base path.
+      example: /api/v1
+    routes:
+    - path: /
+      component: Dashboard
+      description: Analyst dashboard for scoring runs, model metrics, results, and chat.
+    services:
+    - name: api_client
+      file: packages/ui/src/services/api.ts
+      description: Same-origin, typed OpenAPI client for backend operations.
+  api:
+    env_vars:
+    - name: DATABASE_URL
+      description: Async PostgreSQL DSN sourced from an OpenShift Secret.
+      example: postgresql+asyncpg://<secret-ref>
+    - name: OGX_BASE_URL
+      description: Namespace-local OGX Responses API endpoint.
+      example: http://ogx-ai:8321
+    - name: OGX_MODEL_ID
+      description: Explicit model identifier sent to OGX Responses requests.
+      example: llama-3.1-8b-instruct
+    - name: PREDICTION_MCP_URL
+      description: Namespace-local prediction MCP endpoint.
+      example: http://prediction-tools:8000/mcp
+    - name: DATA_FETCH_MCP_URL
+      description: Namespace-local data-fetch MCP endpoint.
+      example: http://data-fetch-tool:8000/mcp
+    - name: SCORING_BATCH_SIZE
+      description: Maximum identifiers sent to one MCP prediction call.
+      example: '100'
+    endpoints:
+    - method: GET
+      path: /api/v1/scoring-runs
+      description: List scoring runs
+      request_schema: null
+      response_schema: ScoringRunPage
+    - method: POST
+      path: /api/v1/scoring-runs
+      description: Queue a scoring run
+      request_schema: null
+      response_schema: ScoringRunAccepted
+      headers:
+      - Idempotency-Key
+    - method: GET
+      path: /api/v1/scoring-runs/{run_id}
+      description: Get scoring-run status and progress
+      request_schema: null
+      response_schema: ScoringRun
+    - method: GET
+      path: /api/v1/scoring-runs/{run_id}/results
+      description: List persisted prediction results
+      request_schema: null
+      response_schema: PredictionResultPage
+    - method: GET
+      path: /api/v1/metrics
+      description: Get metrics for a scoring run
+      request_schema: null
+      response_schema: RunMetrics
+    - method: POST
+      path: /api/v1/chat/sessions/{session_id}/messages
+      description: Send a message to one durable agent session
+      request_schema: ChatMessageRequest
+      response_schema: ChatMessageResponse
+    services:
+    - name: chat_service
+      file: packages/api/src/api/services/chat.py
+      description: Per-session chat with durable request-ID and message-hash replay.
+    - name: scoring_service
+      file: packages/api/src/api/services/scoring.py
+      description: Idempotent scoring runs, bounded MCP batches, and result pagination.
+    - name: ogx_responses_client
+      file: packages/api/src/api/services/ogx_client.py
+      description: Typed OGX Responses API request and response validation.
+    - name: mcp_clients
+      file: packages/api/src/api/services/mcp_clients.py
+      description: Typed clients for prediction and read-only data-fetch MCP services.
+    db_models:
+    - name: Customer
+      file: packages/api/src/api/db/models.py
+      table: customers
+      fields:
+      - customer_id
+      - plan_type
+      - dollar_weight
+      - region_id
+      - source_dataset_revision
+      - source_features
+      - created_at
+      - updated_at
+    - name: BillingCycle
+      file: packages/api/src/api/db/models.py
+      table: billing_cycles
+      fields:
+      - billing_cycle_id
+      - customer_id
+      - billing_cycle_start
+      - total_bill_amount
+      - source_dataset_revision
+      - source_features
+      - created_at
+    - name: Transaction
+      file: packages/api/src/api/db/models.py
+      table: transactions
+      fields:
+      - transaction_id
+      - customer_id
+      - plan_type
+      - is_fraud
+      - source_dataset_revision
+      - source_features
+      - created_at
+    - name: QoeSample
+      file: packages/api/src/api/db/models.py
+      table: qoe_samples
+      fields:
+      - qoe_sample_id
+      - customer_id
+      - region_id
+      - latitude
+      - longitude
+      - elevation_m
+      - visible_satellites
+      - serving_satellites
+      - signal_loss_db
+      - season
+      - weather
+      - source_dataset_revision
+      - source_features
+      - created_at
+    - name: ScoringRun
+      file: packages/api/src/api/db/models.py
+      table: scoring_runs
+      fields:
+      - run_id
+      - idempotency_key
+      - request_fingerprint
+      - status
+      - churn_processed_rows
+      - churn_total_rows
+      - fraud_processed_rows
+      - fraud_total_rows
+      - qoe_processed_rows
+      - qoe_total_rows
+      - error_code
+      - created_at
+      - started_at
+      - completed_at
+      - updated_at
+    - name: ChatRequest
+      file: packages/api/src/api/db/models.py
+      table: chat_requests
+      fields:
+      - session_id
+      - request_id
+      - message_sha256
+      - status
+      - response_payload
+      - created_at
+      - completed_at
+    - name: Prediction
+      file: packages/api/src/api/db/models.py
+      table: predictions
+      fields:
+      - prediction_id
+      - scoring_run_id
+      - model_type
+      - customer_id
+      - transaction_id
+      - class_id
+      - is_fraud
+      - score
+      - model_version
+      - feature_snapshot_sha256
+      - model_output
+      - created_at
+  prediction-tools:
+    env_vars:
+    - name: DATA_FETCH_MCP_URL
+      description: Internal data-fetch MCP endpoint.
+      example: http://data-fetch-tool:8000/mcp
+    - name: CHURN_MODEL_URL
+      description: Namespace-local KServe V2 churn endpoint.
+      example: http://churn-prediction-predictor:8080/v2/models/churn-prediction/infer
+    - name: FRAUD_MODEL_URL
+      description: Namespace-local KServe V2 fraud endpoint.
+      example: http://fraud-prediction-predictor:8080/v2/models/fraud-prediction/infer
+    - name: QOE_MODEL_URL
+      description: Namespace-local KServe V2 QoE endpoint.
+      example: http://starlink-qoe-predictor:8080/v2/models/starlink-qoe/infer
+    - name: CHURN_MODEL_AUTH_TOKEN
+      description: Bearer token from a namespace-scoped Secret for the churn KServe endpoint.
+      example: <secret-ref>
+    - name: FRAUD_MODEL_AUTH_TOKEN
+      description: Bearer token from a namespace-scoped Secret for the fraud KServe endpoint.
+      example: <secret-ref>
+    - name: QOE_MODEL_AUTH_TOKEN
+      description: Bearer token from a namespace-scoped Secret for the QoE KServe endpoint.
+      example: <secret-ref>
+    - name: MODEL_FEATURE_MANIFEST_DIR
+      description: Read-only mounted feature manifests and preprocessing sidecar references.
+      example: /etc/telco-models
+    services:
+    - name: prediction_mcp_server
+      file: packages/prediction-tools/src/prediction_tools/main.py
+      description: Streamable HTTP MCP server for churn, fraud, and QoE predictions.
+    - name: kserve_v2_client
+      file: packages/prediction-tools/src/prediction_tools/kserve_client.py
+      description: Authenticated bounded KServe V2 inference client.
+    - name: feature_manifest_loader
+      file: packages/prediction-tools/src/prediction_tools/features.py
+      description: Validates ordered model features and preprocessing manifests.
+  data-fetch-tool:
+    env_vars:
+    - name: DATABASE_READONLY_URL
+      description: Read-only async PostgreSQL DSN sourced from an OpenShift Secret.
+      example: postgresql+asyncpg://<secret-ref>
+    - name: MCP_HOST
+      description: Internal service bind host.
+      example: 0.0.0.0
+    - name: MCP_PORT
+      description: Internal service port.
+      example: '8000'
+    - name: MAX_FETCH_ROWS
+      description: Maximum rows returned by one tool call.
+      example: '100'
+    services:
+    - name: data_fetch_mcp_server
+      file: packages/data-fetch-tool/src/data_fetch_tool/main.py
+      description: Streamable HTTP MCP service exposing bounded read-only customer data.
+    - name: read_only_repository
+      file: packages/data-fetch-tool/src/data_fetch_tool/repository.py
+      description: Allowlisted PostgreSQL reads with bounded sessions and typed results.
+  data-generator:
+    env_vars:
+    - name: DATABASE_URL
+      description: Seed-writer async PostgreSQL DSN from an OpenShift Secret.
+      example: postgresql+asyncpg://<secret-ref>
+    - name: GENERATOR_SEED
+      description: Seed for repeatable synthetic joins and regional assignment.
+      example: '42'
+    - name: REGIONAL_QOE_CHURN_COUPLING
+      description: Tunable strength of the synthetic regional relationship.
+      example: '0.4'
+    - name: INGEST_BATCH_SIZE
+      description: Bounded database insert/upsert batch size.
+      example: '1000'
+    services:
+    - name: dataset_transform
+      file: packages/data-generator/src/data_generator/transform.py
+      description: Deterministic churn, RAFM, and QoE source-row transformation.
+    - name: snapshot_writer
+      file: packages/data-generator/src/data_generator/writer.py
+      description: Bounded idempotent PostgreSQL upserts for the synthetic snapshot.
+  common:
+    env_vars: []
+    services:
+    - name: error_models
+      file: packages/common/src/common/errors.py
+      description: Shared typed errors and public error envelope models.
+    - name: http_retry
+      file: packages/common/src/common/http.py
+      description: Bounded retry and Retry-After handling for upstream calls.
+contracts:
+- id: frontend-api
+  path: contracts/openapi.yaml
+  content_hash: sha256:da4d5cf1ed1b3b670fdf9917a0138ebd3ffde723b1c843bb143233b3edb23dfa
+  owner: backend
+  provider_verification: passed
+  consumer_verification: passed
+- id: ogx-responses
+  path: contracts/ogx-responses.yaml
+  content_hash: sha256:b0b23eeede26b786cd10cdb7469490421bf0376a142bdfa2bbc4ef4672de629f
+  owner: agent-orchestration
+  provider_verification: passed
+  consumer_verification: passed
+- id: llm-api
+  path: contracts/llm-api.yaml
+  content_hash: sha256:5c5faefc80adcfd73e9d0efed9cdf06d2e812cbef4dfc3933e6918f5c5f21bde
+  owner: llm-serving
+  provider_verification: passed
+  consumer_verification: passed
+- id: prediction-mcp
+  path: contracts/prediction-mcp.json
+  content_hash: sha256:a21a219f22076b669b0c90a5854c3b3dd308eb7575eba7f14aec770333b68d22
+  owner: prediction-tools
+  provider_verification: passed
+  consumer_verification: passed
+- id: data-fetch-mcp
+  path: contracts/data-fetch-mcp.json
+  content_hash: sha256:629c9c6618bb34d5e940f9660b8a3f44c03f955f61c5ac27869c1de049bdbff0
+  owner: data-fetch-tool
+  provider_verification: passed
+  consumer_verification: passed
+- id: database-connection
+  path: contracts/database-connection.yaml
+  content_hash: sha256:5f1dec685d18b4d760c6753b279618e92e2909ab9b8aad158cb81a59e78cd3d8
+  owner: database
+  provider_verification: passed
+  consumer_verification: passed
+- id: database-schema
+  path: contracts/schema.sql
+  content_hash: sha256:d7bae521eb4f09eca4f701bb6be1ba18572109ce257463cac4efd8bc97a275be
+  owner: backend
+  provider_verification: passed
+  consumer_verification: passed
+- id: churn-inference
+  path: contracts/churn-inference.json
+  content_hash: sha256:9ca36b97f1e992cb7a19b543c7151569e6f36aa75b21ac998fe11a2356061757
+  owner: churn-model-serving
+  provider_verification: passed
+  consumer_verification: passed
+- id: fraud-inference
+  path: contracts/fraud-inference.json
+  content_hash: sha256:005df9bed21ee5eeca6a7119860ac6042b8cee59646f3d4f40cde7e944bc7fcb
+  owner: fraud-model-serving
+  provider_verification: passed
+  consumer_verification: passed
+- id: qoe-inference
+  path: contracts/qoe-inference.json
+  content_hash: sha256:c3bbe6fca5c2c54ddc2118efcdf1c27a00cb833134201d80c3b02b2cc313ab51
+  owner: qoe-model-serving
+  provider_verification: passed
+  consumer_verification: passed
+helm:
+  chart_path: chart/
+  dependencies:
+  - name: ogx-ai
+    chart: https://rh-ai-quickstart.github.io/ai-architecture-charts
+    version: 0.8.6
+    condition: ogx-ai.enabled
+  - name: llm-service
+    chart: https://rh-ai-quickstart.github.io/ai-architecture-charts
+    version: 0.1.0
+    condition: llm-service.enabled
+  - name: pgvector
+    chart: https://rh-ai-quickstart.github.io/ai-architecture-charts
+    version: 0.1.0
+    condition: pgvector.enabled
+  inference_services:
+  - churn-prediction
+  - fraud-prediction
+  - starlink-qoe
+  containerfiles:
+  - package: api
+    path: packages/api/Containerfile
+  - package: data-fetch-tool
+    path: packages/data-fetch-tool/Containerfile
+  - package: data-generator
+    path: packages/data-generator/Containerfile
+  - package: prediction-tools
+    path: packages/prediction-tools/Containerfile
+  - package: ui
+    path: packages/ui/Containerfile
+  jobs:
+  - name: database-role-init
+    template: chart/templates/database-role-init-job.yaml
+  - name: database-grants
+    template: chart/templates/database-grants-job.yaml
+  - name: migration
+    template: chart/templates/migration-job.yaml
+  - name: data-generator
+    template: chart/templates/data-generator-job.yaml
+  runtime_inputs:
+    model_artifacts:
+    - model: churn
+      uri_value: modelServing.churn.uri
+      storage_secret_value: modelServing.churn.storageSecretName
+      default_uri_is_placeholder: false
+      default_storage_mode: existing-data-connection
+      storage_path_value: modelServing.churn.storagePath
+      default_storage_path: models/churn/1
+      explicit_uri_override_supported: true
+    - model: fraud
+      uri_value: modelServing.fraud.uri
+      storage_secret_value: modelServing.fraud.storageSecretName
+      default_uri_is_placeholder: false
+      default_storage_mode: existing-data-connection
+      storage_path_value: modelServing.fraud.storagePath
+      default_storage_path: models/
+      explicit_uri_override_supported: true
+    - model: qoe
+      uri_value: modelServing.qoe.uri
+      storage_secret_value: modelServing.qoe.storageSecretName
+      default_uri_is_placeholder: false
+      default_storage_mode: existing-data-connection
+      storage_path_value: modelServing.qoe.storagePath
+      default_storage_path: models/starlink-qoe
+      explicit_uri_override_supported: true
+    feature_artifact_claim: telco-model-feature-artifacts
+    database_secret_names:
+    - telco-api-db
+    - telco-data-generator-db
+    - telco-data-readonly-db
+    - telco-db-bootstrap
+    - telco-migration-db
+    - telco-ogx-db
+    remote_llm:
+      enabled_by_default: false
+      base_url_chart_value: ogx-ai.models.remote-llm.url
+      base_url_contract_name: REMOTE_LLM_BASE_URL
+      api_key_secret_name: telco-ogx-db
+      api_key_secret_key: REMOTE_LLM_API_KEY
+      model_id_chart_value: api.ogxModelId
+      note: Remote mode is opt-in; no credential is stored in chart values.
+  lint: pass
+  template: pass
+  serving_runtimes:
+  - telco-mlserver-lightgbm
+  - telco-mlserver-onnx
+  - telco-mlserver-qoe
+test_coverage:
+  total_tests: 151
+  by_package:
+    api: 56
+    common: 15
+    data-fetch-tool: 14
+    data-generator: 12
+    prediction-tools: 50
+    ui: 4
+  test_command: make test
+  test_result: pass
+  evidence: .qs-factory/reports/model-integration-verification-2026-10-26.json
+acceptance:
+  total: 22
+  passed: 22
+  unverified: []
+deviations:
+- work_unit_id: data-generator
+  expected: packages/data-generator/tests/test_schema_compat.py
+  actual: packages/data-generator/tests/test_generator_schema_compat.py
+  reason: The implemented schema consumer test uses the generator-specific filename; verification paths
+    now target the existing test.
+  spec_amendment_needed: false
+- work_unit_id: data-generator
+  expected: packages/data-generator/tests/test_database_config.py
+  actual: packages/data-generator/tests/test_generator_database_config.py
+  reason: The implemented database configuration test uses the generator-specific filename; the file inventory
+    and database-connection consumer verification now target the existing test.
+  spec_amendment_needed: false
+- work_unit_id: backend
+  expected: Existing API code passes the required repository lint gate.
+  actual: Three existing API Python files required formatting only; Python ASTs are unchanged and all
+    gates now pass.
+  reason: Pre-existing formatting failures surfaced while validating this resumed integration.
+  spec_amendment_needed: false
+open_questions:
+- id: oq-database-schema-source
+  blocking: false
+  question: Final source identifiers, types, keys, QoE cardinality, nullability, and currency semantics
+    remain deferred until the actual source database schema is supplied.
+  current_handling: The user-approved normalized v1 schema and app.chat_requests are provisional; contracts/schema.sql,
+    models, and migration must be reconciled when the source schema arrives.
+- id: oq-chat-upstream-deduplication
+  blocking: false
+  question: After an ambiguous OGX timeout or process crash, upstream side effects cannot be safely replayed
+    without OGX request-ID deduplication.
+  current_handling: The API keeps the durable request claim and suppresses a duplicate OGX call; fake-store
+    tests cover this behavior.
+- id: oq-live-postgresql-integration
+  blocking: false
+  question: A live PostgreSQL integration run was not performed.
+  current_handling: Persistence behavior is exercised with fakes and migration/schema parity is checked
+    against the approved DDL.
+- id: oq-llm-moderation-provider
+  blocking: false
+  question: The pinned OGX chart exposes an optional MODERATION_ENDPOINT, but no moderation provider was
+    specified or configured.
+  current_handling: Chat input is schema-validated and bounded to 4,000 characters; OGX is restricted
+    to the four approved read/prediction MCP tools. Configure an approved moderation endpoint if required
+    for deployment.
+dependencies:
+- spec: .qs-factory/designs/architecture-spec.yaml
+  fields_used:
+  - components
+  - technology_stack
+  - integration_patterns
+  - testing_strategy
+  content_hash: sha256:8525961ea096aafbe9f01beee6bb608fdeccf024f7b5e26fea2eed0d7b728148
+- spec: .qs-factory/designs/architecture-diagram.mmd
+  fields_used:
+  - component_edges
+  content_hash: sha256:768e680a873197ac633fe35309f28361ebfdf48401c1c2bc2b979fd0d72fc9fb
+- spec: .qs-factory/pipeline/implementation-spec.yaml
+  fields_used:
+  - contracts
+  - components
+  - acceptance_criteria
+  content_hash: sha256:cf7653460ef6be38064aadf520d7aa035403aab97bac4cf1fb0a2491f6e0a47c
+updated_at: '2026-11-02T15:21:01+00:00'
+model_integration:
+  source_manifest: serving/source-manifest.json
+  source_commit: 3037c340c5a4a27ae53f95b9146562c12c985c79
+  copied_asset_count: 10
+  copy_verification: passed
+  execution_mode: Prepare the unchanged pipelines for later training; user confirmed on 2026-10-26. No
+    pipeline submitted in this session.
+  verification_report: .qs-factory/reports/model-integration-verification-2026-10-26.json
+  report: .qs-factory/reports/model-integration-2026-10-26.md
+  training_executed: false
+  cluster_contacted: false
+  live_model_inference_verified: false
+  deployment_inputs:
+  - Existing S3 connection Secrets/bucket or explicit model URIs in the destination namespace.
+  - The trained model artifacts and fitted QoE scaler/label encoders.
+  - Exact churn/fraud feature manifests, model versions and tensor metadata.
+  - A populated feature-artifact PVC and model authentication Secrets.
+  limitations:
+  - Copied pipelines do not emit the three application-specific JSON feature manifests; raw pipeline copying
+    cannot fill missing semantic feature metadata.
+  - The supplied deploy-state.yaml remains historical cluster evidence, not a result of this local integration.

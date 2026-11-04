@@ -1,0 +1,41 @@
+FROM ghcr.io/astral-sh/uv:0.9.7 AS uv
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.6 AS openmp
+USER 0
+RUN microdnf install -y libgomp && microdnf clean all
+
+FROM registry.access.redhat.com/ubi9/python-312:1 AS build
+USER 0
+WORKDIR /workspace
+COPY --from=uv /uv /uvx /usr/local/bin/
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+COPY pyproject.toml uv.lock ./
+COPY packages/api/pyproject.toml packages/api/pyproject.toml
+COPY packages/common/pyproject.toml packages/common/pyproject.toml
+COPY packages/data-fetch-tool/pyproject.toml packages/data-fetch-tool/pyproject.toml
+COPY packages/data-generator/pyproject.toml packages/data-generator/pyproject.toml
+COPY packages/prediction-tools/pyproject.toml packages/prediction-tools/pyproject.toml
+COPY packages/api/src packages/api/src
+COPY packages/common/src packages/common/src
+COPY packages/data-fetch-tool/src packages/data-fetch-tool/src
+COPY packages/data-generator/src packages/data-generator/src
+COPY packages/prediction-tools/src packages/prediction-tools/src
+
+RUN uv sync --locked --no-dev --no-editable --package telco-prediction-tools
+
+FROM registry.access.redhat.com/ubi9/python-312:1
+USER 0
+COPY --from=openmp /usr/lib64/libgomp.so.1* /usr/lib64/
+WORKDIR /workspace
+ENV PATH="/opt/venv/bin:${PATH}" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HOME=/tmp \
+    TMPDIR=/tmp
+COPY --from=build --chown=0:0 /opt/venv /opt/venv
+RUN chmod -R g+rX /opt/venv
+USER 1001
+EXPOSE 8000

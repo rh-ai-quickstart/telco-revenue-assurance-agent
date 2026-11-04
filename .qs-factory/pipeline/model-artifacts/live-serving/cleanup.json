@@ -1,0 +1,29 @@
+{
+  "status": "deleted",
+  "observed_at": "2026-10-26T23:39:42.532658+00:00",
+  "resources": [
+    {
+      "kind": "ConfigMap",
+      "name": "telco-model-probe-3c43ff12216a",
+      "uid": "c7e1d97e-6ae2-4060-8062-80b546c6602f",
+      "created_at": "2026-10-26T23:38:20Z",
+      "labels": {
+        "telco.redhat.com/diagnostic": "model-probe",
+        "telco.redhat.com/probe-id": "3c43ff12216a"
+      }
+    },
+    {
+      "kind": "Job",
+      "name": "telco-model-probe-3c43ff12216a",
+      "uid": "7b9d63ff-70c9-4ef8-b0f2-3ea33a91615f",
+      "created_at": "2026-10-26T23:38:20Z",
+      "labels": {
+        "telco.redhat.com/diagnostic": "model-probe",
+        "telco.redhat.com/probe-id": "3c43ff12216a"
+      }
+    }
+  ],
+  "uid_and_labels_verified_before_delete": true,
+  "delete_returncode": 0,
+  "named_resources_and_owned_pod_absent": true
+}

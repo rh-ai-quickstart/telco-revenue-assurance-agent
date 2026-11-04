@@ -1,0 +1,66 @@
+{
+  "mlserver_version": "1.7.1",
+  "scope": "Local execution of known trained artifacts via pinned ODH runtime source; no cluster runtime claim.",
+  "models": {
+    "churn": {
+      "rows": 100,
+      "model_name": "churn-prediction",
+      "model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+      "outputs": [
+        {
+          "name": "predict",
+          "shape": [
+            100,
+            1
+          ],
+          "datatype": "FP64",
+          "parameters": {
+            "content_type": "np"
+          }
+        }
+      ],
+      "response_sha256": "3d320e76dd8ef402d1f795a111df02af4376794ea71fe97a4361ad6687b51bad"
+    },
+    "fraud": {
+      "rows": 100,
+      "model_name": "fraud-prediction",
+      "model_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7",
+      "outputs": [
+        {
+          "name": "predict",
+          "shape": [
+            100,
+            1
+          ],
+          "datatype": "INT64",
+          "parameters": {
+            "content_type": "np"
+          }
+        }
+      ],
+      "response_sha256": "70f4a9d7fbab779f8574894c6ab1182072594589a47c59d59fde67a457f3231a"
+    },
+    "qoe": {
+      "rows": 100,
+      "model_name": "starlink-qoe",
+      "model_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+      "outputs": [
+        {
+          "name": "predict",
+          "shape": [
+            100,
+            1
+          ],
+          "datatype": "FP32",
+          "parameters": {
+            "content_type": "np"
+          }
+        }
+      ],
+      "response_sha256": "2f632836754d5803f6fbdd74fff6800210a82d9747d7e1a2de377a8b5f114b1a",
+      "minimum_score": 55.19541549682617,
+      "maximum_score": 96.7848129272461,
+      "all_values_finite_in_score_range": true
+    }
+  }
+}

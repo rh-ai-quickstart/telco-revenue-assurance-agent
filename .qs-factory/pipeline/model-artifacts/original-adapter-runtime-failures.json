@@ -1,0 +1,28 @@
+{
+  "churn": {
+    "error_code": "FEATURE_SCHEMA_MISMATCH",
+    "validation_errors": [
+      {
+        "location": [
+          "outputs",
+          0,
+          "parameters"
+        ],
+        "type": "extra_forbidden"
+      }
+    ]
+  },
+  "fraud": {
+    "error_code": "FEATURE_SCHEMA_MISMATCH",
+    "validation_errors": [
+      {
+        "location": [
+          "outputs",
+          0,
+          "parameters"
+        ],
+        "type": "extra_forbidden"
+      }
+    ]
+  }
+}

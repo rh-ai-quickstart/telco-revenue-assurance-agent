@@ -1,0 +1,841 @@
+openapi: 3.1.0
+info:
+  title: Telco Revenue Assurance API
+  version: 1.0.0
+  description: >-
+    Same-origin REST API for the analyst dashboard. The authenticated OpenShift Route
+    is the authentication boundary; the backend trusts identity only from the
+    configured trusted ingress or proxy. Chat is synchronous request/reply and has
+    no latency service-level objective in v1.
+servers:
+  - url: /api/v1
+    description: Same-origin API path behind the OAuth-protected Route
+security:
+  - OpenShiftOAuth: []
+tags:
+  - name: Scoring
+  - name: Metrics
+  - name: Chat
+x-contract-guarantees:
+  side_effects: >-
+    GET operations are read-only. POST /scoring-runs queues one explicit run of all
+    three models and is idempotent by Idempotency-Key. Chat writes only the named
+    session and deduplicates a repeated request_id within that session.
+  errors: >-
+    Errors use ErrorEnvelope. Operations document VALIDATION_ERROR,
+    AUTHENTICATION_OR_AUTHORIZATION, NOT_FOUND, RUN_ALREADY_ACTIVE,
+    RUN_NOT_COMPLETE, IDEMPOTENCY_CONFLICT, UPSTREAM_UNAVAILABLE, and INTERNAL_ERROR where reachable.
+  timeouts_retries: >-
+    Scoring creation has a 5 second request deadline; reads have a 10 second deadline;
+    chat has a 120 second hard deadline and no latency SLA. Clients may retry 503 at
+    most twice with exponential backoff starting at 1 second and capped at 8 seconds,
+    honoring Retry-After. Do not retry 4xx responses.
+  ordering: >-
+    Runs are listed newest-first with run_id as the stable tie-breaker. Result pages
+    are ordered by model_type then subject_id. Messages are serialized per session.
+    GET snapshots have no cross-request consistency guarantee while a run is active.
+  versioning: >-
+    The path prefix is /api/v1. Breaking changes require a new path prefix; additive
+    response fields are allowed only when consumers ignore unknown fields.
+paths:
+  /scoring-runs:
+    get:
+      tags: [Scoring]
+      operationId: listScoringRuns
+      summary: List scoring runs
+      description: Returns recent explicitly requested runs; it never starts a run.
+      x-side-effects: None.
+      x-error-codes: [VALIDATION_ERROR, AUTHENTICATION_OR_AUTHORIZATION, UPSTREAM_UNAVAILABLE, INTERNAL_ERROR]
+      x-timeouts-and-retries: 10 second deadline; retry 503 at most twice with exponential backoff from 1 to 8 seconds.
+      x-ordering: created_at descending, then run_id ascending; cursor pagination is stable for immutable sort keys.
+      x-versioning: /api/v1; breaking response changes require /api/v2.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of runs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoringRunPage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Scoring]
+      operationId: createScoringRun
+      summary: Queue a scoring run
+      description: >-
+        Queues churn, fraud, and QoE scoring over the configured source snapshot.
+        The request has no body in v1. Repeating the same Idempotency-Key returns
+        the original run; a distinct key while another run is active returns 409.
+      x-side-effects: >-
+        Creates one durable scoring_runs row. A repeated Idempotency-Key returns that
+        same row. A different key is rejected while a run is queued or running.
+      x-error-codes: [VALIDATION_ERROR, AUTHENTICATION_OR_AUTHORIZATION, RUN_ALREADY_ACTIVE, UPSTREAM_UNAVAILABLE, INTERNAL_ERROR]
+      x-timeouts-and-retries: >-
+        Return 202 within 5 seconds after durable acceptance. Retry 503 at most twice
+        with exponential backoff from 1 to 8 seconds, honoring Retry-After; a retry
+        must reuse the same Idempotency-Key.
+      x-ordering: Runs are independent records; only one run may be active at a time.
+      x-versioning: /api/v1; breaking request or response changes require /api/v2.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: UUID retained by the client for all retries of this request.
+          schema:
+            type: string
+            format: uuid
+          example: 43ca87c8-9cc5-4bc6-b67d-54b3e7119e7e
+      responses:
+        '202':
+          description: The run was durably queued.
+          headers:
+            Location:
+              description: URL of the created run.
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoringRunAccepted'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+        '409':
+          description: Another scoring run is queued or running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              examples:
+                activeRun:
+                  value:
+                    error:
+                      code: RUN_ALREADY_ACTIVE
+                      message: A scoring run is already active.
+                      request_id: req_01J8Z2N5M9K7
+                      retryable: false
+                      details:
+                        - field: null
+                          reason: Wait for the active run to finish before creating another run.
+                          limit: null
+                          current_run_id: 5f70f438-60ba-46f8-80f7-88c18d1707ac
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /scoring-runs/{run_id}:
+    get:
+      tags: [Scoring]
+      operationId: getScoringRun
+      summary: Get scoring-run status and progress
+      x-side-effects: None.
+      x-error-codes: [VALIDATION_ERROR, AUTHENTICATION_OR_AUTHORIZATION, NOT_FOUND, UPSTREAM_UNAVAILABLE, INTERNAL_ERROR]
+      x-timeouts-and-retries: 10 second deadline; retry 503 at most twice with exponential backoff from 1 to 8 seconds.
+      x-ordering: Progress is monotonic within a run; each response is a point-in-time snapshot.
+      x-versioning: /api/v1; breaking response changes require /api/v2.
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: Current run state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoringRun'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /scoring-runs/{run_id}/results:
+    get:
+      tags: [Scoring]
+      operationId: listScoringRunResults
+      summary: List persisted prediction results
+      description: Results become pageable after the run is completed.
+      x-side-effects: None.
+      x-error-codes: [VALIDATION_ERROR, AUTHENTICATION_OR_AUTHORIZATION, NOT_FOUND, RUN_NOT_COMPLETE, UPSTREAM_UNAVAILABLE, INTERNAL_ERROR]
+      x-timeouts-and-retries: 10 second deadline; retry 503 at most twice with exponential backoff from 1 to 8 seconds.
+      x-ordering: model_type ascending, then subject_id ascending; cursor is opaque and stable for a completed run.
+      x-versioning: /api/v1; breaking response changes require /api/v2.
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of prediction results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResultPage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The run is not completed yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              examples:
+                incompleteRun:
+                  value:
+                    error:
+                      code: RUN_NOT_COMPLETE
+                      message: Results are pageable after the run completes.
+                      request_id: req_01J8Z2N5M9K8
+                      retryable: true
+                      details:
+                        - field: null
+                          reason: Poll the run status endpoint and retry after status is completed.
+                          limit: null
+                          current_run_id: 5f70f438-60ba-46f8-80f7-88c18d1707ac
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /metrics:
+    get:
+      tags: [Metrics]
+      operationId: getRunMetrics
+      summary: Get metrics for a scoring run
+      description: >-
+        Aggregates the committed predictions for the selected run. Active runs return
+        a partial snapshot; class IDs are shown without semantic churn labels until
+        the deployed artifact class map is verified.
+      x-side-effects: None.
+      x-error-codes: [VALIDATION_ERROR, AUTHENTICATION_OR_AUTHORIZATION, NOT_FOUND, UPSTREAM_UNAVAILABLE, INTERNAL_ERROR]
+      x-timeouts-and-retries: 10 second deadline; retry 503 at most twice with exponential backoff from 1 to 8 seconds.
+      x-ordering: No ordering guarantee applies to aggregate fields.
+      x-versioning: /api/v1; breaking response changes require /api/v2.
+      parameters:
+        - name: run_id
+          in: query
+          required: true
+          description: Scoring run whose persisted predictions are aggregated.
+          schema:
+            type: string
+            format: uuid
+          example: 5f70f438-60ba-46f8-80f7-88c18d1707ac
+      responses:
+        '200':
+          description: Aggregated counts and QoE summary for the selected run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunMetrics'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /chat/sessions/{session_id}/messages:
+    post:
+      tags: [Chat]
+      operationId: sendChatMessage
+      summary: Send a message to one durable agent session
+      description: >-
+        The first message materializes the specified session in OGX PostgreSQL state;
+        later messages continue only that same session. The backend passes the
+        session_id to OGX and does not choose a session on the caller's behalf.
+      x-side-effects: >-
+        Writes conversation state for the path session_id. Reusing request_id with
+        identical content returns the original response; reusing it with different
+        content returns IDEMPOTENCY_CONFLICT.
+      x-error-codes: [VALIDATION_ERROR, AUTHENTICATION_OR_AUTHORIZATION, IDEMPOTENCY_CONFLICT, UPSTREAM_UNAVAILABLE, INTERNAL_ERROR]
+      x-timeouts-and-retries: >-
+        Hard deadline is 120 seconds; there is no latency SLA. A client may retry
+        UPSTREAM_UNAVAILABLE at most twice with exponential backoff from 1 to 8 seconds
+        and must reuse request_id.
+      x-ordering: Requests for one session are serialized; independent sessions may run concurrently.
+      x-versioning: /api/v1; breaking request or response changes require /api/v2.
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          description: UUID chosen by the client and retained to resume this conversation.
+          schema:
+            type: string
+            format: uuid
+          example: 8239f3a1-94f0-4e9a-9179-2a7b10ef45b8
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageRequest'
+            example:
+              request_id: f28fb20a-03b3-4d71-8a5a-6a29ab5cf93c
+              message: Which customers have high churn class scores in the latest run?
+      responses:
+        '200':
+          description: Completed assistant reply.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessageResponse'
+              example:
+                session_id: 8239f3a1-94f0-4e9a-9179-2a7b10ef45b8
+                request_id: f28fb20a-03b3-4d71-8a5a-6a29ab5cf93c
+                response_id: resp_01J8Z2N5M9K7
+                assistant_message: I found 18 customers in churn class 1 for the latest completed run.
+                created_at: '2026-10-21T11:10:00Z'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+        '409':
+          description: The request ID was previously used with different content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              examples:
+                idempotencyConflict:
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: request_id is already used for a different message.
+                      request_id: req_01J8Z2N5M9K9
+                      retryable: false
+                      details: []
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    OpenShiftOAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: OAuth2 access token
+      description: >-
+        Authentication is enforced by the configured OAuth-protected Route. The
+        backend trusts identity only from the configured trusted ingress or proxy;
+        it must not trust client-supplied identity headers on a direct connection.
+  parameters:
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      description: UUID of a persisted scoring run.
+      schema:
+        type: string
+        format: uuid
+      example: 5f70f438-60ba-46f8-80f7-88c18d1707ac
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum records in one page.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+      example: 50
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor returned by the previous page.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 1024
+      example: eyJvZmZzZXQiOjUwfQ
+  responses:
+    ValidationError:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: limit must be between 1 and 100.
+              request_id: req_01J8Z2N5M9KA
+              retryable: false
+              details:
+                - field: limit
+                  reason: Value must be between 1 and 100.
+                  limit: 100
+                  current_run_id: null
+    AuthenticationError:
+      description: The OAuth-protected Route rejected the request as unauthenticated.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: AUTHENTICATION_OR_AUTHORIZATION
+              message: Authentication is required.
+              request_id: req_01J8Z2N5M9KB
+              retryable: false
+              details: []
+    AuthorizationError:
+      description: The authenticated principal is not permitted to use this API.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: AUTHENTICATION_OR_AUTHORIZATION
+              message: The caller is not authorized for this operation.
+              request_id: req_01J8Z2N5M9KC
+              retryable: false
+              details: []
+    NotFound:
+      description: The requested run does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: NOT_FOUND
+              message: Scoring run was not found.
+              request_id: req_01J8Z2N5M9KD
+              retryable: false
+              details: []
+    UpstreamUnavailable:
+      description: A required database, MCP, OGX, or model service did not complete the request.
+      headers:
+        Retry-After:
+          description: Suggested minimum delay before retrying.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: UPSTREAM_UNAVAILABLE
+              message: A required service is temporarily unavailable.
+              request_id: req_01J8Z2N5M9KE
+              retryable: true
+              details: []
+    InternalError:
+      description: Unexpected server failure; details are logged under request_id only.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: The request could not be completed.
+              request_id: req_01J8Z2N5M9KF
+              retryable: false
+              details: []
+  schemas:
+    ErrorEnvelope:
+      type: object
+      description: Shared public REST error shape; provider details are never returned.
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, request_id, retryable, details]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable error code from contracts/errors.md.
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              description: Human-readable message safe for the authenticated client.
+              example: limit must be between 1 and 100.
+            request_id:
+              type: string
+              description: Correlation identifier for support logs.
+              example: req_01J8Z2N5M9KA
+            retryable:
+              type: boolean
+              description: Whether the client may retry under the error-code policy.
+              example: false
+            details:
+              type: array
+              description: Safe validation or conflict details; empty when there are no details.
+              items:
+                $ref: '#/components/schemas/ErrorDetail'
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [field, reason, limit, current_run_id]
+      properties:
+        field:
+          type: [string, 'null']
+          description: Request field associated with the issue, or null when not applicable.
+          example: limit
+        reason:
+          type: string
+          description: Safe explanation of the validation or conflict.
+          example: Value must be between 1 and 100.
+        limit:
+          type: [integer, 'null']
+          description: Applicable numeric bound, or null when not applicable.
+          example: 100
+        current_run_id:
+          type: [string, 'null']
+          format: uuid
+          description: Active run identifier for RUN_ALREADY_ACTIVE, otherwise null.
+          example: null
+    ModelProgress:
+      type: object
+      additionalProperties: false
+      required: [status, processed_rows, total_rows]
+      properties:
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+          description: State of this model's portion of the scoring run.
+          example: running
+        processed_rows:
+          type: integer
+          minimum: 0
+          description: Persisted source subjects processed so far.
+          example: 250
+        total_rows:
+          type: integer
+          minimum: 0
+          description: Expected subjects for this model in the configured source snapshot.
+          example: 1000
+    ScoringRunProgress:
+      type: object
+      additionalProperties: false
+      required: [churn, fraud, qoe]
+      properties:
+        churn:
+          $ref: '#/components/schemas/ModelProgress'
+        fraud:
+          $ref: '#/components/schemas/ModelProgress'
+        qoe:
+          $ref: '#/components/schemas/ModelProgress'
+    ScoringRunAccepted:
+      type: object
+      additionalProperties: false
+      required: [run_id, status, created_at]
+      properties:
+        run_id:
+          type: string
+          format: uuid
+          description: Durable identifier for polling and result queries.
+          example: 5f70f438-60ba-46f8-80f7-88c18d1707ac
+        status:
+          type: string
+          const: queued
+          description: Newly accepted work is queued, not executed in the request handler.
+          example: queued
+        created_at:
+          type: string
+          format: date-time
+          description: UTC acceptance time.
+          example: '2026-10-21T11:00:00Z'
+    ScoringRun:
+      type: object
+      additionalProperties: false
+      required: [run_id, status, created_at, started_at, completed_at, progress, error_code]
+      properties:
+        run_id:
+          type: string
+          format: uuid
+          description: Durable scoring-run identifier.
+          example: 5f70f438-60ba-46f8-80f7-88c18d1707ac
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+          description: Monotonic overall run state.
+          example: running
+        created_at:
+          type: string
+          format: date-time
+          description: UTC acceptance time.
+          example: '2026-10-21T11:00:00Z'
+        started_at:
+          type: [string, 'null']
+          format: date-time
+          description: UTC work start time, or null before a worker claims the run.
+          example: '2026-10-21T11:00:02Z'
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+          description: UTC completion time, or null while queued or running.
+          example: null
+        progress:
+          $ref: '#/components/schemas/ScoringRunProgress'
+        error_code:
+          type: [string, 'null']
+          description: Stable safe error code when the run failed; otherwise null.
+          example: null
+    ScoringRunPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          description: Runs ordered newest-first.
+          items:
+            $ref: '#/components/schemas/ScoringRun'
+        next_cursor:
+          type: [string, 'null']
+          description: Cursor for the next page, or null when exhausted.
+          example: eyJvZmZzZXQiOjUwfQ
+    PredictionResult:
+      type: object
+      additionalProperties: false
+      required: [prediction_id, run_id, model_type, subject_id, class_id, is_fraud, score, model_version, created_at]
+      properties:
+        prediction_id:
+          type: string
+          format: uuid
+          description: Persisted prediction result identifier.
+          example: 3a2fc5c4-3110-4d89-8f0b-7bf8877c0568
+        run_id:
+          type: string
+          format: uuid
+          description: Scoring run that produced this result.
+          example: 5f70f438-60ba-46f8-80f7-88c18d1707ac
+        model_type:
+          type: string
+          enum: [churn, fraud, qoe]
+          description: Model family that produced the result.
+          example: fraud
+        subject_id:
+          type: string
+          description: Customer ID for churn/QoE or transaction ID for fraud.
+          example: customer-00421
+        class_id:
+          type: [integer, 'null']
+          description: Raw integer class returned by the artifact; null for QoE scores.
+          example: 1
+        is_fraud:
+          type: [boolean, 'null']
+          description: Fraud interpretation from the verified fraud class map; null for other models.
+          example: true
+        score:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          description: QoE score on the model's 0–100 scale; null for classifiers.
+          example: null
+        model_version:
+          type: string
+          description: Deployment artifact version recorded at inference time.
+          example: artifact-sha256-7ef02b3c
+        created_at:
+          type: string
+          format: date-time
+          description: UTC persistence time.
+          example: '2026-10-21T11:02:00Z'
+    PredictionResultPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          description: Results ordered by model_type and subject_id.
+          items:
+            $ref: '#/components/schemas/PredictionResult'
+        next_cursor:
+          type: [string, 'null']
+          description: Cursor for the next page, or null when exhausted.
+          example: eyJvZmZzZXQiOjUwfQ
+    ClassAggregate:
+      type: object
+      additionalProperties: false
+      required: [class_id, prediction_count, dollar_weight_sum]
+      properties:
+        class_id:
+          type: integer
+          description: Raw class ID emitted by the model artifact.
+          example: 1
+        prediction_count:
+          type: integer
+          minimum: 0
+          description: Persisted result count for this class.
+          example: 18
+        dollar_weight_sum:
+          type: [number, 'null']
+          minimum: 0
+          description: Sum of customer dollar_weight for churn; null for fraud.
+          example: 1420.75
+    ChurnMetrics:
+      type: object
+      additionalProperties: false
+      required: [customer_count, classes]
+      properties:
+        customer_count:
+          type: integer
+          minimum: 0
+          description: Number of persisted churn results.
+          example: 1125
+        classes:
+          type: array
+          description: Count and customer dollar weight grouped by raw artifact class ID.
+          items:
+            $ref: '#/components/schemas/ClassAggregate'
+    FraudMetrics:
+      type: object
+      additionalProperties: false
+      required: [transaction_count, fraud_count, classes]
+      properties:
+        transaction_count:
+          type: integer
+          minimum: 0
+          description: Number of persisted fraud results.
+          example: 2500
+        fraud_count:
+          type: integer
+          minimum: 0
+          description: Count of class 1, mapped to Fraud by the artifact class order [False, True].
+          example: 12
+        classes:
+          type: array
+          description: Count grouped by fraud artifact class ID.
+          items:
+            $ref: '#/components/schemas/ClassAggregate'
+    QoeMetrics:
+      type: object
+      additionalProperties: false
+      required: [customer_count, mean_score, minimum_score, maximum_score]
+      properties:
+        customer_count:
+          type: integer
+          minimum: 0
+          description: Number of persisted QoE scores.
+          example: 800
+        mean_score:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          description: Arithmetic mean over persisted scores, or null when none exist.
+          example: 78.4
+        minimum_score:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          description: Minimum persisted QoE score, or null when none exist.
+          example: 42.1
+        maximum_score:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          description: Maximum persisted QoE score, or null when none exist.
+          example: 96.8
+    RunMetrics:
+      type: object
+      additionalProperties: false
+      required: [run_id, status, as_of, churn, fraud, qoe]
+      properties:
+        run_id:
+          type: string
+          format: uuid
+          description: Scoring run summarized by this response.
+          example: 5f70f438-60ba-46f8-80f7-88c18d1707ac
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+          description: Run state when the aggregation was read.
+          example: completed
+        as_of:
+          type: string
+          format: date-time
+          description: UTC time at which the persisted results were aggregated.
+          example: '2026-10-21T11:10:00Z'
+        churn:
+          $ref: '#/components/schemas/ChurnMetrics'
+        fraud:
+          $ref: '#/components/schemas/FraudMetrics'
+        qoe:
+          $ref: '#/components/schemas/QoeMetrics'
+    ChatMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id, message]
+      properties:
+        request_id:
+          type: string
+          format: uuid
+          description: Idempotency identifier scoped to session_id.
+          example: f28fb20a-03b3-4d71-8a5a-6a29ab5cf93c
+        message:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: Analyst question; arbitrary SQL and endpoint URLs are not interpreted as tool configuration.
+          example: Which customers have high churn class scores in the latest run?
+    ChatMessageResponse:
+      type: object
+      additionalProperties: false
+      required: [session_id, request_id, response_id, assistant_message, created_at]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          description: Session specified in the request path.
+          example: 8239f3a1-94f0-4e9a-9179-2a7b10ef45b8
+        request_id:
+          type: string
+          format: uuid
+          description: Request id echoed for retry deduplication.
+          example: f28fb20a-03b3-4d71-8a5a-6a29ab5cf93c
+        response_id:
+          type: string
+          description: OGX response identifier used for correlation.
+          example: resp_01J8Z2N5M9K7
+        assistant_message:
+          type: string
+          description: Final assistant text after any allowlisted MCP tool calls.
+          example: I found 18 customers in churn class 1 for the latest completed run.
+        created_at:
+          type: string
+          format: date-time
+          description: UTC response completion time.
+          example: '2026-10-21T11:10:00Z'

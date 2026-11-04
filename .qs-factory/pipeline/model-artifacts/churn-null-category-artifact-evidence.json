@@ -1,0 +1,21 @@
+{
+  "PrimaryIssueType": {
+    "source_null_count": 18719,
+    "null_source_rows_in_training": 13116,
+    "training_encoded_values_for_null_source": [
+      0.0
+    ]
+  },
+  "SupportChannel": {
+    "source_null_count": 18719,
+    "null_source_rows_in_training": 13116,
+    "training_encoded_values_for_null_source": [
+      0.0
+    ]
+  },
+  "PaymentStatus": {
+    "source_null_count": 0,
+    "null_source_rows_in_training": 0,
+    "training_encoded_values_for_null_source": []
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "rows": 78786,
+  "feature_width": 14,
+  "maximum_absolute_difference": 0.0,
+  "comparison": "Staged app preprocessing on original CSV rows with explicit source-null JSON normalization versus actual approved pipeline x_train output in the same row-index order",
+  "dataset_sha256": "b1cf55ae76149b912fb24b2950d9b2bd9214eae20bd6c5e4897095f9df6bf1f2",
+  "training_output_sha256": "45a830608735cd4c5f06fa01beb532e41307f497d08af9d3ab3dbc6ae4b2b5a4",
+  "pipeline_source_sha256": "1d808ce52a0a2e4ed3a4207ee630bbfd54afd134f13c1364bac4cb53028688dd",
+  "nullable_fields": {
+    "PrimaryIssueType": 13116,
+    "SupportChannel": 13116
+  },
+  "staged_features_sha256": "6bda9f5bdf9ecba0b1e645e5c180c5d07117ecd9738320508f4b32b1e4263d58"
+}

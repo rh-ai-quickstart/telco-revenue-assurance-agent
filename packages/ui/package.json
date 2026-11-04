@@ -1,0 +1,32 @@
+{
+  "name": "ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "pnpm run typecheck && vite build",
+    "lint": "eslint src --config ../../packages/configs/eslint.config.mjs --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "generate:types": "openapi-typescript ../../contracts/openapi.yaml -o src/api/types.ts && prettier --config ../../packages/configs/prettier.json --write src/api/types.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.66.0",
+    "@tanstack/react-router": "1.170.45",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/react": "16.1.0",
+    "@types/react": "19.0.8",
+    "@types/react-dom": "19.0.3",
+    "jsdom": "25.0.1",
+    "openapi-typescript": "7.5.2",
+    "typescript": "5.7.2",
+    "vite": "6.0.7",
+    "vitest": "2.1.8"
+  }
+}

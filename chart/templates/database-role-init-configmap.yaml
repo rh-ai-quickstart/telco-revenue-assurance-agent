@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "telco.fullname" . }}-db-bootstrap
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "db-role-init") | nindent 4 }}
+data:
+  init-database-roles.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    psql --set=ON_ERROR_STOP=1 --no-psqlrc <<'SQL'
+    \getenv api_password TELCO_API_PASSWORD
+    \getenv readonly_password TELCO_READONLY_PASSWORD
+    \getenv seed_password TELCO_SEED_PASSWORD
+    \getenv ogx_password TELCO_OGX_PASSWORD
+    \getenv migration_password TELCO_MIGRATION_PASSWORD
+
+    -- Keep generated password-bearing SQL out of the Job log.
+    \o /dev/null
+    SELECT format('CREATE ROLE telco_api_rw LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION', :'api_password')
+      WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'telco_api_rw')
+    \gexec
+    ALTER ROLE telco_api_rw WITH LOGIN PASSWORD :'api_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+    SELECT format('CREATE ROLE telco_data_ro LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION', :'readonly_password')
+      WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'telco_data_ro')
+    \gexec
+    ALTER ROLE telco_data_ro WITH LOGIN PASSWORD :'readonly_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+    SELECT format('CREATE ROLE telco_seed_rw LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION', :'seed_password')
+      WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'telco_seed_rw')
+    \gexec
+    ALTER ROLE telco_seed_rw WITH LOGIN PASSWORD :'seed_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+    SELECT format('CREATE ROLE telco_ogx_rw LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION', :'ogx_password')
+      WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'telco_ogx_rw')
+    \gexec
+    ALTER ROLE telco_ogx_rw WITH LOGIN PASSWORD :'ogx_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+    SELECT format('CREATE ROLE telco_migrate LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION', :'migration_password')
+      WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'telco_migrate')
+    \gexec
+    ALTER ROLE telco_migrate WITH LOGIN PASSWORD :'migration_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+    \o
+
+    SELECT format(
+      'GRANT CONNECT ON DATABASE %I TO telco_api_rw, telco_data_ro, telco_seed_rw, telco_ogx_rw, telco_migrate',
+      current_database()
+    )
+    \gexec
+
+    -- The frozen migration executes CREATE SCHEMA IF NOT EXISTS app.
+    -- Database CREATE is required even when the schema already exists.
+    SELECT format('GRANT CREATE ON DATABASE %I TO telco_migrate', current_database())
+    \gexec
+
+    SELECT 'CREATE SCHEMA app AUTHORIZATION telco_migrate'
+      WHERE NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'app')
+    \gexec
+    ALTER SCHEMA app OWNER TO telco_migrate;
+    REVOKE ALL ON SCHEMA app FROM PUBLIC;
+    GRANT USAGE, CREATE ON SCHEMA app TO telco_migrate;
+    GRANT USAGE ON SCHEMA app TO telco_api_rw, telco_data_ro, telco_seed_rw;
+    ALTER ROLE telco_api_rw SET search_path = app, public;
+    ALTER ROLE telco_data_ro SET search_path = app, public;
+    ALTER ROLE telco_seed_rw SET search_path = app, public;
+    ALTER ROLE telco_migrate SET search_path = app, public;
+
+    SELECT 'CREATE SCHEMA ogx_state AUTHORIZATION telco_ogx_rw'
+      WHERE NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'ogx_state')
+    \gexec
+    ALTER SCHEMA ogx_state OWNER TO telco_ogx_rw;
+    REVOKE ALL ON SCHEMA ogx_state FROM PUBLIC;
+    GRANT USAGE, CREATE ON SCHEMA ogx_state TO telco_ogx_rw;
+    ALTER ROLE telco_ogx_rw SET search_path = ogx_state, public;
+    SQL
+
+  grant-application-access.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    psql --set=ON_ERROR_STOP=1 --no-psqlrc <<'SQL'
+    REVOKE ALL ON ALL TABLES IN SCHEMA app FROM PUBLIC, telco_api_rw, telco_data_ro, telco_seed_rw;
+    REVOKE ALL ON ALL SEQUENCES IN SCHEMA app FROM PUBLIC, telco_api_rw, telco_data_ro, telco_seed_rw;
+    REVOKE ALL ON TYPE app.scoring_run_status FROM PUBLIC, telco_api_rw, telco_data_ro, telco_seed_rw;
+    REVOKE ALL ON TYPE app.model_family FROM PUBLIC, telco_api_rw, telco_data_ro, telco_seed_rw;
+
+    GRANT SELECT ON
+      app.customers,
+      app.billing_cycles,
+      app.transactions,
+      app.qoe_samples,
+      app.scoring_runs,
+      app.predictions,
+      app.chat_requests
+    TO telco_api_rw;
+    GRANT INSERT, UPDATE ON
+      app.scoring_runs,
+      app.predictions,
+      app.chat_requests
+    TO telco_api_rw;
+    GRANT USAGE ON TYPE app.scoring_run_status, app.model_family TO telco_api_rw;
+
+    GRANT SELECT ON
+      app.customers,
+      app.billing_cycles,
+      app.transactions,
+      app.qoe_samples
+    TO telco_data_ro;
+
+    GRANT SELECT, INSERT, UPDATE ON
+      app.customers,
+      app.billing_cycles,
+      app.transactions,
+      app.qoe_samples
+    TO telco_seed_rw;
+    SQL

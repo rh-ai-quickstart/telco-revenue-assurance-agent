@@ -1,0 +1,19 @@
+{
+  "model_name": "starlink-qoe",
+  "model_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+  "input_tensor_name": "input",
+  "output_tensor_name": "predict",
+  "feature_order": [
+    "latitude",
+    "longitude",
+    "elevation_m",
+    "visible_satellites",
+    "serving_satellites",
+    "signal_loss_db",
+    "season_encoded",
+    "weather_encoded"
+  ],
+  "feature_width": 8,
+  "scaler_file": "scaler.joblib",
+  "label_encoders_file": "label_encoders.joblib"
+}

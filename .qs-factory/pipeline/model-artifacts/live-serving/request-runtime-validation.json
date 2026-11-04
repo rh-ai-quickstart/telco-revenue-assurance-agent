@@ -1,0 +1,17 @@
+{
+  "churn": {
+    "status": "pass",
+    "rows": 100,
+    "maximum_absolute_difference_vs_local": 0.0
+  },
+  "fraud": {
+    "status": "pass",
+    "rows": 100,
+    "maximum_absolute_difference_vs_local": 0.0
+  },
+  "qoe": {
+    "status": "pass",
+    "rows": 100,
+    "maximum_absolute_difference_vs_local": 0.0
+  }
+}

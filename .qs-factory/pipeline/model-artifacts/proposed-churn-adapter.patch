@@ -1,0 +1,315 @@
+--- a/packages/prediction-tools/src/prediction_tools/kserve_client.py
++++ b/packages/prediction-tools/src/prediction_tools/kserve_client.py
+@@ -10,7 +10,7 @@
+ from uuid import uuid4
+ 
+ import httpx
+-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
++from pydantic import BaseModel, ConfigDict, Field, JsonValue, SecretStr, ValidationError
+ 
+ from common.errors import ErrorCode, ServiceError, UpstreamError
+ from common.http import HttpClient, RetryPolicy
+@@ -56,6 +56,7 @@
+     shape: list[int]
+     datatype: str
+     data: list[object]
++    parameters: dict[str, JsonValue] | None = None
+ 
+ 
+ class _KServeResponse(BaseModel):
+@@ -65,6 +66,7 @@
+     model_name: str = Field(min_length=1)
+     model_version: str = Field(min_length=1)
+     outputs: list[_KServeOutput]
++    parameters: dict[str, JsonValue] | None = None
+ 
+ 
+ class KServeV2Client:
+@@ -250,20 +252,37 @@
+                 _validate_fraud_probabilities(auxiliary, batch_size)
+     elif len(response.outputs) != 1:
+         raise _schema_mismatch()
+-    expected_shape = [batch_size, 1] if model_kind == ModelKind.QOE else [batch_size]
+-    if output.shape != expected_shape:
++    if model_kind == ModelKind.QOE:
++        valid_shape = output.shape == [batch_size, 1]
++    else:
++        # MLServer's NumPy codec pads one-dimensional predictions with a unit axis.
++        valid_shape = output.shape in ([batch_size], [batch_size, 1])
++    if not valid_shape:
+         raise _schema_mismatch()
+     if len(output.data) != batch_size:
+         raise _schema_mismatch()
+ 
+     values: list[int | float] = []
+     if model_kind == ModelKind.CHURN:
+-        if output.datatype != "INT64":
+-            raise _schema_mismatch()
+-        for value in output.data:
+-            if type(value) is not int:
+-                raise _schema_mismatch()
+-            values.append(value)
++        if output.datatype == "INT64":
++            for value in output.data:
++                if type(value) is not int:
++                    raise _schema_mismatch()
++                values.append(value)
++        elif output.datatype in {"FP32", "FP64"}:
++            # The native binary Booster returns P(class=True). This is the same
++            # argmax rule as the trained LGBMClassifier, including ties at 0.5.
++            for value in output.data:
++                if isinstance(value, bool) or not isinstance(value, (int, float)):
++                    raise _schema_mismatch()
++                if not 0 <= value <= 1:
++                    raise _schema_mismatch()
++                probability = float(value)
++                if not math.isfinite(probability):
++                    raise _schema_mismatch()
++                values.append(1 if probability > 0.5 else 0)
++        else:
++            raise _schema_mismatch()
+     elif model_kind == ModelKind.FRAUD:
+         if output.datatype == "BOOL":
+             for value in output.data:
+--- a/packages/prediction-tools/tests/test_kserve_v2_contract.py
++++ b/packages/prediction-tools/tests/test_kserve_v2_contract.py
+@@ -329,7 +329,7 @@
+             dict(_fraud_probability_output(), data=[0.1, 0.9, 0.2, float("nan")]),
+         ],
+         [_fraud_class_output(), dict(_fraud_probability_output(), data=[0.1, 0.9, 0.2, True])],
+-        [dict(_fraud_class_output(), shape=[2, 1])],
++        [dict(_fraud_class_output(), shape=[2, 2])],
+         [dict(_fraud_class_output(), data=[0])],
+         [dict(_fraud_class_output(), data=[0, 2])],
+         [dict(_fraud_class_output(), data=[False, True])],
+@@ -478,3 +478,96 @@
+     assert len(attempts) == 2
+     assert attempts[0].headers["Authorization"] == "Bearer churn-test-token"
+     assert result.values == (1,)
++
++
++@pytest.mark.parametrize("datatype", ["FP32", "FP64"])
++@pytest.mark.parametrize("shape", [[5], [5, 1]])
++def test_churn_native_probabilities_follow_trained_binary_classifier(
++    datatype: str, shape: list[int]
++) -> None:
++    manifest = _churn_manifest()
++    response = _response(
++        manifest,
++        [
++            {
++                "name": "predict",
++                "shape": shape,
++                "datatype": datatype,
++                "data": [0.0, 0.499999, 0.5, 0.500001, 1.0],
++                "parameters": {"content_type": "np"},
++            }
++        ],
++    )
++    assert _contract_accepts(ModelKind.CHURN, response, response=True)
++    result = parse_inference_response(ModelKind.CHURN, manifest, 5, response)
++    assert result.values == (0, 0, 0, 1, 1)
++
++
++@pytest.mark.parametrize("value", [float("nan"), float("inf"), -0.01, 1.01, True, "0.5", 10**400])
++def test_churn_rejects_invalid_native_probability(value: object) -> None:
++    manifest = _churn_manifest()
++    response = _response(
++        manifest,
++        [
++            {
++                "name": "predict",
++                "shape": [1],
++                "datatype": "FP64",
++                "data": [value],
++                "parameters": {"content_type": "np"},
++            }
++        ],
++    )
++    with pytest.raises(ServiceError) as error:
++        parse_inference_response(ModelKind.CHURN, manifest, 1, response)
++    assert error.value.code == ErrorCode.FEATURE_SCHEMA_MISMATCH
++
++
++@pytest.mark.parametrize("model_kind", [ModelKind.CHURN, ModelKind.FRAUD, ModelKind.QOE])
++def test_standard_runtime_parameters_preserve_strict_response_validation(
++    model_kind: ModelKind,
++) -> None:
++    output: dict[str, object]
++    if model_kind == ModelKind.CHURN:
++        manifest = _churn_manifest()
++        output = {"name": "predict", "shape": [1], "datatype": "FP64", "data": [0.75]}
++    elif model_kind == ModelKind.FRAUD:
++        manifest = _fraud_manifest()
++        output = {"name": "fraud_class", "shape": [1], "datatype": "INT64", "data": [1]}
++    else:
++        manifest = _qoe_manifest()
++        output = {"name": "output", "shape": [1, 1], "datatype": "FP32", "data": [72.5]}
++    output["parameters"] = {"content_type": "np"}
++    response = _response(manifest, [output])
++    response["parameters"] = {"headers": {"x-runtime": "mlserver"}}
++    assert _contract_accepts(model_kind, response, response=True)
++    assert (
++        parse_inference_response(model_kind, manifest, 1, response).model_version
++        == manifest.model_version
++    )
++    response["unexpected"] = "must still fail"
++    with pytest.raises(ServiceError):
++        parse_inference_response(model_kind, manifest, 1, response)
++
++
++@pytest.mark.parametrize(("field", "value"), [("shape", [1, 2]), ("name", "wrong-output")])
++def test_churn_probability_metadata_mismatch_is_rejected(field: str, value: object) -> None:
++    manifest = _churn_manifest()
++    output: dict[str, object] = {
++        "name": "predict",
++        "shape": [1],
++        "datatype": "FP64",
++        "data": [0.75],
++    }
++    output[field] = value
++    response = _response(manifest, [output])
++    with pytest.raises(ServiceError):
++        parse_inference_response(ModelKind.CHURN, manifest, 1, response)
++
++
++def test_fraud_accepts_numpy_codec_unit_dimension_with_flat_labels() -> None:
++    manifest = _fraud_manifest()
++    output = dict(_fraud_class_output(), shape=[2, 1], parameters={"content_type": "np"})
++    response = _response(manifest, [output])
++    assert _contract_accepts(ModelKind.FRAUD, response, response=True)
++    assert parse_inference_response(ModelKind.FRAUD, manifest, 2, response).values == (0, 1)
+--- a/contracts/churn-inference.json
++++ b/contracts/churn-inference.json
+@@ -73,9 +73,15 @@
+     },
+     "OutputTensor": {
+       "type": "object",
++      "allOf": [{
++        "if": { "properties": { "datatype": { "const": "INT64" } } },
++        "then": { "properties": { "data": { "items": { "type": "integer" } } } },
++        "else": { "properties": { "data": { "items": { "type": "number", "minimum": 0, "maximum": 1 } } } }
++      }],
+       "additionalProperties": false,
+       "required": ["name", "shape", "datatype", "data"],
+       "properties": {
++        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+         "name": {
+           "type": "string",
+           "minLength": 1,
+@@ -83,23 +89,23 @@
+         },
+         "shape": {
+           "type": "array",
+-          "prefixItems": [{ "$ref": "#/$defs/PositiveDimension", "description": "Number of output class IDs; equals input batch size." }],
++          "prefixItems": [{ "$ref": "#/$defs/PositiveDimension", "description": "Number of predictions; equals input batch size." }, { "type": "integer", "const": 1 }],
+           "items": false,
+           "minItems": 1,
+-          "maxItems": 1,
+-          "description": "One-dimensional output shape [batch]."
++          "maxItems": 2,
++          "description": "One result per row: [batch], or the MLServer NumPy codec shape [batch, 1]."
+         },
+         "datatype": {
+           "type": "string",
+-          "const": "INT64",
+-          "description": "Class IDs are returned as INT64."
++          "enum": ["INT64", "FP32", "FP64"],
++          "description": "Native LightGBM returns FP64 positive-class probabilities; legacy INT64 class outputs are also accepted."
+         },
+         "data": {
+           "type": "array",
+           "minItems": 1,
+           "maxItems": 100,
+-          "items": { "type": "integer", "description": "Raw LightGBM class ID." },
+-          "description": "One raw class ID per input row, preserving input order."
++          "items": { "type": "number" },
++          "description": "One class ID or positive-class probability per input row, preserving input order."
+         }
+       }
+     },
+@@ -108,6 +114,7 @@
+       "additionalProperties": false,
+       "required": ["id", "model_name", "model_version", "outputs"],
+       "properties": {
++        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+         "id": { "type": "string", "description": "Request ID echoed by the inference server." },
+         "model_name": { "type": "string", "const": "churn-prediction", "description": "Configured KServe model name." },
+         "model_version": { "type": "string", "description": "Served artifact version, which prediction-tools records with the result." },
+@@ -116,7 +123,7 @@
+           "minItems": 1,
+           "maxItems": 1,
+           "items": { "$ref": "#/$defs/OutputTensor" },
+-          "description": "Exactly one class-output tensor."
++          "description": "Exactly one prediction tensor."
+         }
+       }
+     }
+@@ -128,7 +135,7 @@
+     "side_effects": "Stateless inference; the model service does not mutate application database rows.",
+     "errors": "Invalid tensor, model not ready, invalid model name, and artifact storage failures use KServe V2 error responses and map to INVALID_TENSOR, MODEL_NOT_READY, INVALID_MODEL_NAME, or STORAGE_ERROR.",
+     "timeouts_retries": "Prediction-tools sets a 30 second per-batch deadline and retries one transient readiness/5xx failure after 500 milliseconds; invalid tensors and artifact mismatches are not retried.",
+-    "ordering": "Exactly one INT64 class output is returned per input row and row order is preserved.",
++    "ordering": "Exactly one probability or legacy class output is returned per input row and row order is preserved. FP32/FP64 probabilities become class 1 only when greater than 0.5; ties map to class 0, matching the trained binary classifier.",
+     "versioning": "KServe V2 is the wire protocol. The ordered semantic feature manifest and class metadata are versioned with the artifact and validated before inference."
+   },
+   "x-preprocessing": {
+--- a/contracts/fraud-inference.json
++++ b/contracts/fraud-inference.json
+@@ -76,6 +76,7 @@
+       "additionalProperties": false,
+       "required": ["name", "shape", "datatype", "data"],
+       "properties": {
++        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+         "name": {
+           "type": "string",
+           "minLength": 1,
+@@ -83,11 +84,11 @@
+         },
+         "shape": {
+           "type": "array",
+-          "prefixItems": [{ "$ref": "#/$defs/PositiveDimension", "description": "Number of class IDs; equals input batch size." }],
++          "prefixItems": [{ "$ref": "#/$defs/PositiveDimension", "description": "Number of class IDs; equals input batch size." }, { "type": "integer", "const": 1 }],
+           "items": false,
+           "minItems": 1,
+-          "maxItems": 1,
+-          "description": "One-dimensional output shape [batch]."
++          "maxItems": 2,
++          "description": "One result per row: [batch], or the MLServer NumPy codec shape [batch, 1]."
+         },
+         "datatype": {
+           "type": "string",
+@@ -114,6 +115,7 @@
+       "additionalProperties": false,
+       "required": ["name", "shape", "datatype", "data"],
+       "properties": {
++        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+         "name": {
+           "type": "string",
+           "minLength": 1,
+@@ -149,6 +151,7 @@
+       "additionalProperties": false,
+       "required": ["id", "model_name", "model_version", "outputs"],
+       "properties": {
++        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+         "id": { "type": "string", "description": "Request ID echoed by the inference server." },
+         "model_name": { "type": "string", "const": "fraud-prediction", "description": "Configured KServe model name." },
+         "model_version": { "type": "string", "description": "Served artifact version, recorded with prediction results." },
+--- a/contracts/qoe-inference.json
++++ b/contracts/qoe-inference.json
+@@ -83,6 +83,7 @@
+       "additionalProperties": false,
+       "required": ["name", "shape", "datatype", "data"],
+       "properties": {
++        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+         "name": {
+           "type": "string",
+           "minLength": 1,
+@@ -123,6 +124,7 @@
+       "additionalProperties": false,
+       "required": ["id", "model_name", "model_version", "outputs"],
+       "properties": {
++        "parameters": { "type": ["object", "null"], "description": "Optional KServe V2 runtime metadata; tensor validation remains unchanged." },
+         "id": { "type": "string", "description": "Request ID echoed by the inference server." },
+         "model_name": { "type": "string", "const": "starlink-qoe", "description": "Configured KServe model name." },
+         "model_version": { "type": "string", "description": "Served artifact version, recorded with prediction results." },

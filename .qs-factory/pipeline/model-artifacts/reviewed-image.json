@@ -1,0 +1,64 @@
+{
+  "image": "quay.io/yelias/prediction-tools:0.1.0-models-2a6e269567cf3abd",
+  "source_fingerprint": "2a6e269567cf3abdfb257010e9da127690b78aa4848e9f71f21c3f55940db5e4",
+  "app_source_applied": false,
+  "pushed": false,
+  "context_policy": "Only 47 previously verified Containerfile input paths. Two staged reviewed source overrides. No credentials, datasets, model artifacts, git or unrelated files.",
+  "build_exit_code": 0,
+  "smoke_status": "PASS",
+  "smoke_results": [
+    {
+      "entrypoint": "python -m prediction_tools.main",
+      "gid": 0,
+      "http_mcp_tools": [
+        "predict_churn",
+        "predict_fraud",
+        "predict_qoe"
+      ],
+      "native_imports": [
+        "numpy",
+        "sklearn",
+        "joblib"
+      ],
+      "scope": "Runtime startup and tool discovery only; no trained artifacts or prediction requests",
+      "status": "PASS",
+      "uid": 12345,
+      "verified_source_files": 20
+    },
+    {
+      "models": {
+        "churn": {
+          "model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+          "rows": 100
+        },
+        "fraud": {
+          "model_version": "4a5b4f1f-0f2e-475c-b2d3-ce8eae5931f7",
+          "rows": 100
+        },
+        "qoe": {
+          "model_version": "8b213f6f-abc8-45be-bbaf-7230ffffcd3f",
+          "rows": 100
+        }
+      },
+      "network": "none",
+      "scope": "Built image parses all three actual local-runtime responses and loads the SHA256-verified trained feature bundle",
+      "status": "PASS"
+    }
+  ],
+  "observed_at": "2026-10-26T23:41:30.183678+00:00",
+  "approval": "Pending explicit approval to apply both application patches and publish this image",
+  "patches": [
+    "proposed-churn-adapter.patch",
+    "proposed-churn-features.patch"
+  ],
+  "changed_source_hashes": {
+    "packages/prediction-tools/src/prediction_tools/features.py": "6bda9f5bdf9ecba0b1e645e5c180c5d07117ecd9738320508f4b32b1e4263d58",
+    "packages/prediction-tools/src/prediction_tools/kserve_client.py": "0dff60aada1a6edf2e4a66569d5271d9f8e4e7cba9a4c00af298212607d0f7be"
+  },
+  "live_response_validation": {
+    "status": "PASS",
+    "image": "quay.io/yelias/prediction-tools:0.1.0-models-2a6e269567cf3abd",
+    "exit_code": 0,
+    "scope": "Built proposal image parsing actual authenticated cluster responses and loading verified trained feature bundle"
+  }
+}

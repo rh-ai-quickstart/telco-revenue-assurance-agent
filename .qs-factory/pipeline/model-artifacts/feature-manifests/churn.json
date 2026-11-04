@@ -1,0 +1,23 @@
+{
+  "model_name": "churn-prediction",
+  "model_version": "1ea4bc0e-f1c7-44af-8d80-58dc53eaa805",
+  "input_tensor_name": "predict",
+  "output_tensor_name": "predict",
+  "feature_order": [
+    "CallMinutes",
+    "DataUsageGB",
+    "SMSCount",
+    "InternetSessions",
+    "TotalBillAmount",
+    "PaymentStatus",
+    "LateFee",
+    "DiscountsApplied",
+    "SupportInteractionCount",
+    "PrimaryIssueType",
+    "ResolutionTimeMinutes",
+    "SatisfactionScore",
+    "EscalationFlag",
+    "SupportChannel"
+  ],
+  "feature_width": 14
+}

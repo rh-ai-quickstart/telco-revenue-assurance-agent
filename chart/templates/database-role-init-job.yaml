@@ -1,0 +1,121 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "telco.fullname" . }}-db-role-init
+  labels:
+    {{- include "telco.componentLabels" (dict "root" . "component" "db-role-init") | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        {{- include "telco.componentSelector" (dict "root" . "component" "db-role-init") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "telco.serviceAccount" (dict "root" . "suffix" "db-role-init") }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.securityContext.pod | nindent 8 }}
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ printf "%s:%s" .Values.pgvector.image.repository .Values.pgvector.image.tag | quote }}
+          imagePullPolicy: {{ .Values.pgvector.image.pullPolicy }}
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              for attempt in $(seq 1 90); do
+                if pg_isready -h {{ .Values.database.serviceName | quote }} -p {{ .Values.database.port }} -U postgres -d {{ .Values.pgvector.secret.dbname | quote }}; then
+                  exit 0
+                fi
+                sleep 10
+              done
+              echo "PostgreSQL did not become ready within 15 minutes." >&2
+              exit 1
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.bootstrapSecretName }}
+                  key: {{ .Values.database.bootstrapPasswordKey }}
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      containers:
+        - name: provision-database-roles
+          image: {{ printf "%s:%s" .Values.pgvector.image.repository .Values.pgvector.image.tag | quote }}
+          imagePullPolicy: {{ .Values.pgvector.image.pullPolicy }}
+          command: ["/bin/bash", "/scripts/init-database-roles.sh"]
+          env:
+            - name: PGHOST
+              value: {{ .Values.database.serviceName | quote }}
+            - name: PGPORT
+              value: {{ .Values.database.port | quote }}
+            - name: PGUSER
+              value: postgres
+            - name: PGDATABASE
+              value: {{ .Values.pgvector.secret.dbname | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.bootstrapSecretName }}
+                  key: {{ .Values.database.bootstrapPasswordKey }}
+            - name: TELCO_API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.roles.api.secretName }}
+                  key: {{ .Values.database.roles.api.passwordKey }}
+            - name: TELCO_READONLY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.roles.dataFetch.secretName }}
+                  key: {{ .Values.database.roles.dataFetch.passwordKey }}
+            - name: TELCO_SEED_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.roles.dataGenerator.secretName }}
+                  key: {{ .Values.database.roles.dataGenerator.passwordKey }}
+            - name: TELCO_OGX_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.roles.ogx.secretName }}
+                  key: {{ .Values.database.roles.ogx.passwordKey }}
+            - name: TELCO_MIGRATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.roles.migration.secretName }}
+                  key: {{ .Values.database.roles.migration.passwordKey }}
+          securityContext:
+            {{- toYaml .Values.securityContext.container | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: role-script
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: role-script
+          configMap:
+            name: {{ include "telco.fullname" . }}-db-bootstrap
+            defaultMode: 0444
+        - name: tmp
+          emptyDir: {}

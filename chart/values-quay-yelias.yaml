@@ -1,0 +1,38 @@
+# Overlay for personal Quay builds (tag 0.1.0). Use with:
+#   helm upgrade --install telco-revenue-assurance-agent chart/ \
+#     --namespace telco-revenue-assurance-agent --create-namespace \
+#     -f chart/values.yaml -f chart/values-quay-yelias.yaml
+#
+# Still required before/at deploy (not in this file): Kubernetes Secrets, PVC
+# telco-model-feature-artifacts, and real modelServing.*.uri values below.
+
+image:
+  tag: "0.1.0"
+
+frontend:
+  image: quay.io/yelias/ui
+
+api:
+  image: quay.io/yelias/api
+
+migration:
+  image: quay.io/yelias/api
+
+predictionTools:
+  image: quay.io/yelias/prediction-tools
+
+dataFetchTool:
+  image: quay.io/yelias/data-fetch-tool
+
+dataGenerator:
+  image: quay.io/yelias/data-generator
+
+# Replace with URIs where KServe can download churn / fraud / QoE model folders.
+# Each path is typically s3://<bucket>/<prefix>/ (trailing layout must match your upload).
+modelServing:
+  churn:
+    uri: s3://REPLACE-WITH-YOUR-BUCKET/models/churn/1
+  fraud:
+    uri: s3://REPLACE-WITH-YOUR-BUCKET/models/fraud/1
+  qoe:
+    uri: s3://REPLACE-WITH-YOUR-BUCKET/models/starlink-qoe/1
