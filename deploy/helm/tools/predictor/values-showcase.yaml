@@ -1,0 +1,47 @@
+# Default configuration for the telco-revenue-assurance-agent namespace.
+# Install with: helm upgrade --install predictor deploy/helm/tools/predictor -n telco-revenue-assurance-agent -f deploy/helm/tools/predictor/values-showcase.yaml
+fullnameOverride: predictor
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/telco-revenue-assurance-agent/predictor
+  tag: "latest"
+  digest: ""
+
+dataFetch:
+  url: http://data-fetch.telco-revenue-assurance-agent.svc:8080
+
+models:
+  churn:
+    url: https://churn-prediction-predictor.telco-revenue-assurance-agent.svc:8443/v2/models/churn-prediction/infer
+  fraud:
+    url: https://fraud-prediction-predictor.telco-revenue-assurance-agent.svc:8443/v2/models/fraud-prediction/infer
+  qoe:
+    url: https://starlink-qoe-predictor.telco-revenue-assurance-agent.svc:8443/v2/models/starlink-qoe/infer
+
+inference:
+  auth:
+    mode: serviceAccount
+serviceAccount:
+  automountServiceAccountToken: true
+rbac:
+  modelRoles:
+    churn: churn-prediction-view-role
+    fraud: fraud-prediction-view-role
+    qoe: starlink-qoe-view-role
+
+tls:
+  http:
+    openShiftServiceCA: true
+
+qoe:
+  poorThreshold: 65
+  goodThreshold: 80
+  artifacts:
+    endpoint: http://minio-service.showcase.svc:9000
+    prefix: models/starlink-qoe
+    bucketSecret:
+      name: my-data-connection
+      key: AWS_S3_BUCKET
+    credentialsSecret:
+      name: my-data-connection
+      accessKeyIdKey: AWS_ACCESS_KEY_ID
+      secretAccessKeyKey: AWS_SECRET_ACCESS_KEY

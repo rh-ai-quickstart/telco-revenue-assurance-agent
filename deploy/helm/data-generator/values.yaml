@@ -1,0 +1,95 @@
+# ── Container image ────────────────────────────────────────────────────────────
+# Full image path: <registry>/<Release.Namespace>/<name>:<tag>
+# Override image.registry or image.name to pull from a different registry or repo.
+image:
+  registry: image-registry.openshift-image-registry.svc:5000
+  name: data-generator
+  tag: "latest"
+  pullPolicy: Always
+
+# ── Data generation parameters ─────────────────────────────────────────────────
+generator:
+  # Number of unique customers to generate (0 = all ~27k from HuggingFace dataset)
+  nCustomers: 10000
+
+  # Number of transactions to generate (0 = all 1M from HuggingFace dataset)
+  nTransactions: 1000000
+
+  # Number of geographic regions to cluster Starlink data into
+  # 4 gives North/South/East/West-style regions suitable for the demo narrative
+  nRegions: 4
+
+  # QoE-churn coupling strength (0.0 = random, 1.0 = fully correlated)
+  # At 0.3, churned customers are biased toward low-QoE regions but each region
+  # still has active at-risk customers — the agent can find retention targets everywhere.
+  # 0.7+ causes region 0 to fill with 100% already-churned customers (no active targets).
+  coupling: "0.3"
+
+  # Cap has_churned=True to this fraction after region assignment.
+  # The source dataset has ~46% churn; capping at 15% ensures most customers are
+  # still active so the agent always has retention candidates to score and act on.
+  maxChurnRate: "0.15"
+
+  # Transaction-to-customer assignment strategy: weighted | uniform
+  # weighted: higher avg_bill_amount customers receive more transactions (realistic)
+  txStrategy: weighted
+
+  # Random seed for reproducibility
+  seed: 42
+
+  # Point-in-time snapshot date for selecting each customer's billing cycle
+  # Kept for Helm chart compatibility; actual selection uses random cycle sampling
+  snapshotDate: "2021-06-01"
+
+# ── Database connection ─────────────────────────────────────────────────────────
+database:
+  # Option A (recommended): reference an existing OpenShift Secret.
+  # The secret must contain a key with a valid PostgreSQL connection URL.
+  # Example: oc create secret generic data-generator-db \
+  #            --from-literal=DATABASE_URL=postgresql://user:pass@host:5432/db
+  existingSecret: ""
+  existingSecretKey: "DATABASE_URL"
+
+  # Option B: let the chart build the URL from individual fields.
+  # Used only when existingSecret is empty.
+  host: "postgresql"         # Service name of the PostgreSQL instance
+  port: 5432
+  name: "telco_revenue"      # Database name
+  username: ""               # Set via --set or a values override file
+  password: ""               # Set via --set or a values override file
+
+# ── Kubernetes Job settings ─────────────────────────────────────────────────────
+job:
+  # Automatically delete the Job pod N seconds after completion (success or failure)
+  # Set to 0 to keep logs visible indefinitely; -1 disables TTL (OpenShift default)
+  ttlSecondsAfterFinished: 600
+
+  # Number of retries on failure before marking the Job as failed
+  # 0 = fail immediately on first error (recommended for idempotent seed jobs)
+  backoffLimit: 0
+
+  restartPolicy: Never
+
+  # Optional: run the Job under a specific ServiceAccount
+  serviceAccountName: ""
+
+# ── Resource limits ─────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: "500m"
+    memory: "2Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+
+# ── OpenShift SecurityContext ───────────────────────────────────────────────────
+# The image runs as UID 1001 (non-root). OpenShift assigns a random UID
+# at runtime; the image is built with g=u permissions to support this.
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault

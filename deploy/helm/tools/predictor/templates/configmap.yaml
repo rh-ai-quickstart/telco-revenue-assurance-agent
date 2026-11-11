@@ -1,0 +1,38 @@
+{{- include "predictor.validate" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "predictor.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "predictor.labels" . | nindent 4 }}
+data:
+  DATA_FETCH_URL: {{ .Values.dataFetch.url | quote }}
+  DATA_FETCH_TIMEOUT: {{ .Values.dataFetch.timeoutSeconds | quote }}
+  CHURN_INFER_URL: {{ .Values.models.churn.url | quote }}
+  FRAUD_INFER_URL: {{ .Values.models.fraud.url | quote }}
+  QOE_INFER_URL: {{ .Values.models.qoe.url | quote }}
+  INFER_TIMEOUT: {{ .Values.inference.timeoutSeconds | quote }}
+  CACHE_TTL: {{ .Values.cache.ttlSeconds | quote }}
+  CACHE_MAXSIZE: {{ .Values.cache.maxSize | quote }}
+  BATCH_MAX_SIZE: {{ .Values.batching.maxSize | quote }}
+  BATCH_WAIT_MS: {{ .Values.batching.waitMs | quote }}
+  QOE_POOR_THRESHOLD: {{ .Values.qoe.poorThreshold | quote }}
+  QOE_GOOD_THRESHOLD: {{ .Values.qoe.goodThreshold | quote }}
+  AWS_S3_ENDPOINT: {{ .Values.qoe.artifacts.endpoint | quote }}
+  S3_MODEL_PATH: {{ .Values.qoe.artifacts.prefix | quote }}
+  {{- if .Values.qoe.artifacts.bucket }}
+  S3_BUCKET: {{ .Values.qoe.artifacts.bucket | quote }}
+  {{- end }}
+  {{- if .Values.qoe.artifacts.region }}
+  AWS_DEFAULT_REGION: {{ .Values.qoe.artifacts.region | quote }}
+  {{- end }}
+  {{- if eq .Values.inference.auth.mode "serviceAccount" }}
+  INFER_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
+  {{- end }}
+  {{- if or .Values.tls.http.openShiftServiceCA .Values.tls.http.existingConfigMap }}
+  SSL_CERT_FILE: /etc/predictor-ca/service-ca.crt
+  {{- end }}
+  {{- if .Values.tls.s3.existingConfigMap }}
+  AWS_CA_BUNDLE: /etc/predictor-s3-ca/ca-bundle.pem
+  {{- end }}

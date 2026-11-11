@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "backend.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "backend.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: backend
+          image: "{{ .Values.image.registry }}/{{ .Release.Namespace }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "backend.secretName" . }}
+                  key: {{ include "backend.secretKey" . }}
+            - name: OGX_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "backend.fullname" . }}-config
+                  key: OGX_URL
+            - name: OGX_MODEL_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "backend.fullname" . }}-config
+                  key: OGX_MODEL_ID
+            - name: PREPROCESSING_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "backend.fullname" . }}-config
+                  key: PREPROCESSING_URL
+            - name: DATA_FETCH_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "backend.fullname" . }}-config
+                  key: DATA_FETCH_URL
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}

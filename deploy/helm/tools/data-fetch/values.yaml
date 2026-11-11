@@ -1,0 +1,58 @@
+# ── Container image ────────────────────────────────────────────────────────────
+# Full image path: <registry>/<Release.Namespace>/<name>:<tag>
+# Override image.registry or image.name to pull from a different registry or repo.
+image:
+  registry: image-registry.openshift-image-registry.svc:5000
+  name: data-fetch-tool
+  tag: "latest"
+  pullPolicy: Always
+
+# ── Deployment settings ────────────────────────────────────────────────────────
+replicaCount: 1
+
+# ── Database connection ─────────────────────────────────────────────────────────
+# Option A (recommended): reference an existing OpenShift Secret.
+# The secret must contain a key with a valid PostgreSQL connection URL.
+# Example: oc create secret generic data-fetch-db \
+#            --from-literal=DATABASE_URL=postgresql://user:pass@host:5432/db
+database:
+  existingSecret: ""
+  existingSecretKey: "DATABASE_URL"
+
+  # Option B: let the chart build the URL from individual fields.
+  # Used only when existingSecret is empty.
+  host: "postgresql"
+  port: 5432
+  name: "telco_revenue"
+  username: ""
+  password: ""
+
+# ── Service ─────────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 8080
+
+# ── Resource limits ─────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+# ── OpenShift SecurityContext ───────────────────────────────────────────────────
+# The image runs as UID 1001 (non-root). OpenShift assigns a random UID
+# at runtime; the image is built with g=u permissions to support this.
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# ── Optional name overrides ─────────────────────────────────────────────────────
+nameOverride: ""
+fullnameOverride: "data-fetch"

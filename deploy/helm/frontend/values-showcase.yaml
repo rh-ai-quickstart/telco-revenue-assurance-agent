@@ -1,0 +1,15 @@
+fullnameOverride: revenue-assurance-dashboard
+
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/showcase/telco-frontend
+  tag: "latest"
+  pullPolicy: Always
+
+replicaCount: 1
+
+route:
+  enabled: true
+  host: ""
+
+staticAssets:
+  enabled: false

@@ -1,0 +1,49 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: predictor
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: predictor
+spec:
+  runPolicy: Serial
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: predictor:latest
+  successfulBuildsHistoryLimit: 2
+  failedBuildsHistoryLimit: 2
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: preprocessing-data-fetch
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: preprocessing-data-fetch
+spec:
+  runPolicy: Serial
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: preprocessing-data-fetch:latest
+  successfulBuildsHistoryLimit: 2
+  failedBuildsHistoryLimit: 2

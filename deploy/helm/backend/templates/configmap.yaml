@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backend.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+data:
+  OGX_URL: {{ .Values.ogx.url | quote }}
+  OGX_MODEL_ID: {{ .Values.ogx.modelId | quote }}
+  PREPROCESSING_URL: {{ .Values.tools.predictorUrl | quote }}
+  DATA_FETCH_URL: {{ .Values.tools.dataFetchUrl | quote }}

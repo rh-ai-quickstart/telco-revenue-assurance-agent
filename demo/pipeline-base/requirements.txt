@@ -1,0 +1,7 @@
+pandas
+scikit-learn
+imbalanced-learn
+lightgbm==4.6.0
+skl2onnx
+onnxruntime
+boto3

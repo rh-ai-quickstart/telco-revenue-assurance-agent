@@ -1,0 +1,9 @@
+Revenue Assurance dashboard deployed.
+
+Get the OpenShift route:
+  oc get route {{ include "revenue-assurance-dashboard.fullname" . }} -n {{ .Release.Namespace }}
+
+Check rollout status:
+  oc rollout status deployment/{{ include "revenue-assurance-dashboard.fullname" . }} -n {{ .Release.Namespace }}
+
+The dashboard is frontend-only and does not require an API upstream.

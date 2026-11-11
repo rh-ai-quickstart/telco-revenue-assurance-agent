@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "data-generator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "data-generator.labels" . | nindent 4 }}
+  annotations:
+    # Force re-run on upgrade by embedding a timestamp in the annotation.
+    # Without this, Helm skips the Job if its spec has not changed.
+    helm.sh/chart-version: {{ .Chart.Version | quote }}
+spec:
+  {{- if ge (int .Values.job.ttlSecondsAfterFinished) 0 }}
+  ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
+  {{- end }}
+  backoffLimit: {{ .Values.job.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "data-generator.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: {{ .Values.job.restartPolicy }}
+      {{- if .Values.job.serviceAccountName }}
+      serviceAccountName: {{ .Values.job.serviceAccountName }}
+      {{- end }}
+
+      containers:
+        - name: data-generator
+          image: "{{ .Values.image.registry }}/{{ .Release.Namespace }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          # Arguments are passed as CLI flags to generate.py
+          args:
+            - "--n-customers"
+            - {{ .Values.generator.nCustomers | quote }}
+            - "--n-transactions"
+            - {{ .Values.generator.nTransactions | quote }}
+            - "--n-regions"
+            - {{ .Values.generator.nRegions | quote }}
+            - "--coupling"
+            - {{ .Values.generator.coupling | quote }}
+            - "--max-churn-rate"
+            - {{ .Values.generator.maxChurnRate | quote }}
+            - "--tx-strategy"
+            - {{ .Values.generator.txStrategy | quote }}
+            - "--seed"
+            - {{ .Values.generator.seed | quote }}
+            - "--snapshot-date"
+            - {{ .Values.generator.snapshotDate | quote }}
+
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "data-generator.secretName" . }}
+                  key: {{ include "data-generator.secretKey" . }}
+            - name: HF_HOME
+              value: /tmp/huggingface
+            - name: HF_DATASETS_CACHE
+              value: /tmp/huggingface/datasets
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}

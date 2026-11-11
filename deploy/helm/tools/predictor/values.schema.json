@@ -1,0 +1,218 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Predictor chart values",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["image", "dataFetch", "models", "inference", "cache", "batching", "qoe", "tls", "serviceAccount", "rbac", "service"],
+  "definitions": {
+    "optionalName": {"type": "string", "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+    "key": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._-]+$"},
+    "url": {"type": "string", "pattern": "^https?://[^/@\\s?#]+([/?#][^\\s]*)?$"},
+    "optionalUrl": {"type": "string", "pattern": "^$|^https?://[^/@\\s?#]+([/?#][^\\s]*)?$"},
+    "positiveSeconds": {"type": "number", "exclusiveMinimum": 0},
+    "secretAuth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["existingSecret", "key"],
+      "properties": {
+        "existingSecret": {"$ref": "#/definitions/optionalName"},
+        "key": {"$ref": "#/definitions/key"}
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url"],
+      "properties": {"url": {"$ref": "#/definitions/optionalUrl"}}
+    }
+  },
+  "properties": {
+    "global": {"type": "object"},
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "digest", "pullPolicy"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1, "pattern": "^\\S+$"},
+        "tag": {"type": "string", "minLength": 1},
+        "digest": {"type": "string", "pattern": "^$|^sha256:[a-fA-F0-9]{64}$"},
+        "pullPolicy": {"enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {"name": {"type": "string", "minLength": 1}}
+      }
+    },
+    "replicaCount": {"type": "integer", "minimum": 0},
+    "fullnameOverride": {"type": "string", "maxLength": 63, "pattern": "^$|^[a-z]([-a-z0-9]*[a-z0-9])?$"},
+    "dataFetch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "timeoutSeconds", "auth"],
+      "properties": {
+        "url": {"$ref": "#/definitions/url"},
+        "timeoutSeconds": {"$ref": "#/definitions/positiveSeconds"},
+        "auth": {"$ref": "#/definitions/secretAuth"}
+      }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["churn", "fraud", "qoe"],
+      "properties": {
+        "churn": {"$ref": "#/definitions/model"},
+        "fraud": {"$ref": "#/definitions/model"},
+        "qoe": {"$ref": "#/definitions/model"}
+      }
+    },
+    "inference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeoutSeconds", "auth"],
+      "properties": {
+        "timeoutSeconds": {"$ref": "#/definitions/positiveSeconds"},
+        "auth": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "existingSecret", "key"],
+          "properties": {
+            "mode": {"enum": ["none", "serviceAccount", "secret"]},
+            "existingSecret": {"$ref": "#/definitions/optionalName"},
+            "key": {"$ref": "#/definitions/key"}
+          }
+        }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ttlSeconds", "maxSize"],
+      "properties": {
+        "ttlSeconds": {"type": "number", "minimum": 0},
+        "maxSize": {"type": "integer", "minimum": 1}
+      }
+    },
+    "batching": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxSize", "waitMs"],
+      "properties": {
+        "maxSize": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "waitMs": {"type": "number", "minimum": 0, "maximum": 1000}
+      }
+    },
+    "qoe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["poorThreshold", "goodThreshold", "artifacts"],
+      "properties": {
+        "poorThreshold": {"type": "number", "minimum": 0, "maximum": 100},
+        "goodThreshold": {"type": "number", "minimum": 0, "maximum": 100},
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["endpoint", "prefix", "bucket", "bucketSecret", "region", "credentialsSecret"],
+          "properties": {
+            "endpoint": {"$ref": "#/definitions/optionalUrl"},
+            "prefix": {"type": "string"},
+            "bucket": {"type": "string"},
+            "region": {"type": "string"},
+            "bucketSecret": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "key"],
+              "properties": {
+                "name": {"$ref": "#/definitions/optionalName"},
+                "key": {"$ref": "#/definitions/key"}
+              }
+            },
+            "credentialsSecret": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "accessKeyIdKey", "secretAccessKeyKey", "sessionTokenKey"],
+              "properties": {
+                "name": {"$ref": "#/definitions/optionalName"},
+                "accessKeyIdKey": {"$ref": "#/definitions/key"},
+                "secretAccessKeyKey": {"$ref": "#/definitions/key"},
+                "sessionTokenKey": {"type": "string", "pattern": "^[A-Za-z0-9._-]*$"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "tls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["http", "s3"],
+      "properties": {
+        "http": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["openShiftServiceCA", "existingConfigMap", "key"],
+          "properties": {
+            "openShiftServiceCA": {"type": "boolean"},
+            "existingConfigMap": {"$ref": "#/definitions/optionalName"},
+            "key": {"$ref": "#/definitions/key"}
+          }
+        },
+        "s3": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["existingConfigMap", "key"],
+          "properties": {
+            "existingConfigMap": {"$ref": "#/definitions/optionalName"},
+            "key": {"$ref": "#/definitions/key"}
+          }
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create", "name", "annotations", "automountServiceAccountToken"],
+      "properties": {
+        "create": {"type": "boolean"},
+        "name": {"$ref": "#/definitions/optionalName"},
+        "annotations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "automountServiceAccountToken": {"type": "boolean"}
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelRoles"],
+      "properties": {
+        "modelRoles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["churn", "fraud", "qoe"],
+          "properties": {
+            "churn": {"$ref": "#/definitions/optionalName"},
+            "fraud": {"$ref": "#/definitions/optionalName"},
+            "qoe": {"$ref": "#/definitions/optionalName"}
+          }
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "port"],
+      "properties": {
+        "type": {"enum": ["ClusterIP", "NodePort", "LoadBalancer"]},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    },
+    "resources": {"type": "object"},
+    "securityContext": {"type": "object"},
+    "nodeSelector": {"type": "object", "additionalProperties": {"type": "string"}},
+    "tolerations": {"type": "array", "items": {"type": "object"}},
+    "affinity": {"type": "object"}
+  }
+}

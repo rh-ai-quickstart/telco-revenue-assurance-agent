@@ -1,0 +1,105 @@
+# Default values for pgvector.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Namespace override - allows cross-namespace deployment when used as subchart
+namespace: ""
+
+replicaCount: 1
+
+image:
+  repository: docker.io/pgvector/pgvector
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: pg17
+
+imagePullSecrets: []
+
+nameOverride: "pgvector"
+fullnameOverride: "pgvector"
+
+serviceAccount:
+  create: false
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 5432
+
+env:
+  - name: POSTGRES_USER
+    valueFrom:
+      secretKeyRef:
+        key: user
+        name: pgvector
+  - name: POSTGRES_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: password
+        name: pgvector
+  - name: POSTGRES_PORT
+    valueFrom:
+      secretKeyRef:
+        key: port
+        name: pgvector
+  - name: POSTGRES_DBNAME
+    valueFrom:
+      secretKeyRef:
+        key: dbname
+        name: pgvector
+
+resources: {}
+
+autoscaling:
+  enabled: false
+
+volumeClaimTemplates:
+  - metadata:
+      name: pg-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 5Gi
+
+volumeMounts:
+  - mountPath: /docker-entrypoint-initdb.d
+    name: initdb-volume
+  - mountPath: /var/lib/postgresql
+    name: pg-data
+
+nodeSelector: {}
+affinity: {}
+
+# Secret configuration for pgvector
+# These values can be overridden from a parent chart or via --set flags
+# Example: helm install ... 
+# --set pgvector.secret.user=myuser -
+# --set pgvector.secret.password=mypass
+secret:
+  create: true
+  user: postgres
+  password: rag_password
+  dbname: rag_blueprint
+  host: pgvector
+  port: "5432"
+
+extraDatabases: []
+  #- name: test_db
+  #  vectordb: false
+
+# External database configuration
+# When enabled, the chart will NOT deploy a PostgreSQL instance.
+# Instead, it will create a Secret pointing to the external database.
+externalDatabase:
+  enabled: false
+  host: ""
+  port: "5432"
+  user: ""
+  password: ""
+  dbname: ""

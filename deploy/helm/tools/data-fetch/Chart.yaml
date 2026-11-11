@@ -1,0 +1,15 @@
+apiVersion: v2
+name: data-fetch-tool
+description: >
+  FastAPI microservice that abstracts PostgreSQL access for customer and
+  transaction data, called by the OGX agent and prediction tools.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - telco
+  - data-fetch
+  - fastapi
+  - openshift
+maintainers:
+  - name: Telco Revenue Assurance Team

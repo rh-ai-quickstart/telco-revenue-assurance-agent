@@ -1,0 +1,29 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: fraud-prediction-view-role
+rules:
+- apiGroups: [serving.kserve.io]
+  resources: [inferenceservices]
+  resourceNames: [fraud-prediction]
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: churn-prediction-view-role
+rules:
+- apiGroups: [serving.kserve.io]
+  resources: [inferenceservices]
+  resourceNames: [churn-prediction]
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: starlink-qoe-view-role
+rules:
+- apiGroups: [serving.kserve.io]
+  resources: [inferenceservices]
+  resourceNames: [starlink-qoe]
+  verbs: [get]

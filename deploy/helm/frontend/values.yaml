@@ -1,0 +1,68 @@
+# ── Container image ────────────────────────────────────────────────────────────
+# Full image path: <registry>/<Release.Namespace>/<name>:<tag>
+image:
+  registry: image-registry.openshift-image-registry.svc:5000
+  name: telco-frontend
+  tag: "latest"
+  pullPolicy: Always
+
+imagePullSecrets: []
+
+# ── Deployment settings ────────────────────────────────────────────────────────
+replicaCount: 2
+
+# ── Service ────────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 8080
+
+# ── Static asset mode ─────────────────────────────────────────────────────────
+# When the cluster registry is unavailable, mount the built SPA and NGINX config
+# from existing ConfigMaps and use a public NGINX image.
+staticAssets:
+  enabled: false
+  configMap: ""
+  nginxConfigMap: ""
+
+# ── OpenShift Route ─────────────────────────────────────────────────────────────
+# Leave route.host empty to let OpenShift assign the default cluster route host.
+route:
+  enabled: true
+  host: ""
+  annotations: {}
+
+# ── Resource limits ─────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "250m"
+    memory: "128Mi"
+
+# ── OpenShift SecurityContext ───────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ── Backend API proxy ──────────────────────────────────────────────────────────
+# nginx proxies /api/ to this URL. Override for each namespace deployment.
+backendUrl: "http://backend.telco-revenue-assurance-agent.svc.cluster.local:8000"
+
+# ── Optional name overrides ─────────────────────────────────────────────────────
+nameOverride: ""
+fullnameOverride: ""

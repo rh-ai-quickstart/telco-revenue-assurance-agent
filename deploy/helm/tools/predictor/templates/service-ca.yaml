@@ -1,0 +1,11 @@
+{{- if .Values.tls.http.openShiftServiceCA }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "predictor.fullname" . }}-service-ca
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "predictor.labels" . | nindent 4 }}
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+{{- end }}

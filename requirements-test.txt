@@ -1,0 +1,9 @@
+pytest>=8.0
+pytest-asyncio>=0.23
+httpx>=0.27
+# Runtime deps needed to import the modules under test
+openai>=1.0
+fastapi>=0.111
+sqlalchemy[asyncio]>=2.0
+asyncpg>=0.29
+pydantic>=2.0

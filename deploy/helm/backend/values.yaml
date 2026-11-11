@@ -1,0 +1,70 @@
+# ── Container image ────────────────────────────────────────────────────────────
+# Full image path: <registry>/<Release.Namespace>/<name>:<tag>
+# Override image.registry or image.name to pull from a different registry or repo.
+image:
+  registry: image-registry.openshift-image-registry.svc:5000
+  name: telco-backend
+  tag: "latest"
+  pullPolicy: Always
+
+# ── Deployment settings ────────────────────────────────────────────────────────
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: "backend"
+
+# ── Database connection ─────────────────────────────────────────────────────────
+# Option A (recommended): reference an existing OpenShift Secret.
+# The secret must contain a key with a valid PostgreSQL connection URL.
+database:
+  existingSecret: ""
+  existingSecretKey: "DATABASE_URL"
+
+  # Option B: let the chart build the URL from individual fields.
+  # Used only when existingSecret is empty.
+  host: "pgvector"
+  port: 5432
+  name: "telco_revenue"
+  username: ""
+  password: ""
+
+# ── OGX / LlamaStack agent settings ────────────────────────────────────────────
+ogx:
+  url: "http://ogx-ai:8321"
+  modelId: "remote-llm/meta-llama/Llama-3.1-8B-Instruct"
+
+# ── In-cluster tool service URLs ────────────────────────────────────────────────
+tools:
+  predictorUrl: "http://predictor:8080"
+  dataFetchUrl: "http://data-fetch:8080"
+
+# ── Service ─────────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 8000
+
+# ── OpenShift Route ─────────────────────────────────────────────────────────────
+route:
+  enabled: true
+  host: ""   # auto-assigned by OpenShift when empty
+  tls:
+    termination: edge
+
+# ── Resource limits ─────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+
+# ── OpenShift SecurityContext ───────────────────────────────────────────────────
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault

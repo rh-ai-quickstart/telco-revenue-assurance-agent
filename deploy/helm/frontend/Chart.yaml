@@ -1,0 +1,16 @@
+apiVersion: v2
+name: revenue-assurance-dashboard
+description: >
+  React analyst dashboard for telco churn, fraud, and Starlink QoE predictions,
+  served by an unprivileged NGINX container on OpenShift.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - telco
+  - revenue-assurance
+  - react
+  - dashboard
+  - openshift
+maintainers:
+  - name: Telco Revenue Assurance Team

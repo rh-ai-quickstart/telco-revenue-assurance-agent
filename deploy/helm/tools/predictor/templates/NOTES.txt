@@ -1,0 +1,10 @@
+Predictor API: http://{{ include "predictor.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+
+Local access:
+  oc -n {{ .Release.Namespace }} port-forward svc/{{ include "predictor.fullname" . }} 18080:{{ .Values.service.port }}
+
+Request a prediction using an existing customer ID:
+  curl -i http://127.0.0.1:18080/predict/{{ if .Values.models.churn.url }}churn{{ else if .Values.models.fraud.url }}fraud{{ else }}qoe{{ end }} -H 'Content-Type: application/json' -d '{"customer_id":"YOUR_CUSTOMER_ID"}'
+
+/health reports process liveness. Verify a real /predict request and /stats to check model inference.
+QoE requires complete source fields plus its fitted S3 artifacts.
