@@ -1,436 +1,562 @@
-# [INSERT quickstart title here]
+# Detect Telco Revenue Losses with an AI Agent
 
-> **CONTRIBUTOR TODO: update title**
->
-> Replace the H1 title above with your quickstart title
->
-> **TITLE requirements:**
-> - MAX CHAR: 64
-> - Industry use case, e.g.: "Protect patient data with LLM guardrails"
->
-> _TITLE will be extracted for publication._
-
-[Add your short description here - max 160 characters]
-
-> **CONTRIBUTOR TODO: short description**
->
-> Add a SHORT DESCRIPTION of your use case between H1 title and the Table of Contents
->
-> **SHORT DESCRIPTION requirements:**
-> - MAX CHAR: 160
-> - Describe the INDUSTRY use case
->
-> _SHORT DESCRIPTION will be extracted for publication._
+Detect churn risk, billing fraud, and network QoE issues using a conversational AI agent backed by three ML models on OpenShift® AI.
 
 ## Table of Contents
 
-> **CONTRIBUTOR TODO: update table of contents links**
->
-> This section is recommended for better navigation. The links below are examples - update them to match your actual README sections.
-
-- [Overview](#overview)
-- [Detailed description](#detailed-description)
-  - [See it in action](#see-it-in-action)
-  - [Architecture diagrams](#architecture-diagrams)
+- [Description](#description)
+- [Architecture](#architecture)
+- [Example Queries](#example-queries)
 - [Requirements](#requirements)
-  - [Minimum hardware requirements](#minimum-hardware-requirements)
-  - [Minimum software requirements](#minimum-software-requirements)
-  - [Required user permissions](#required-user-permissions)
 - [Deploy](#deploy)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Validating the deployment](#validating-the-deployment)
-  - [Delete](#delete)
-- [Repository structure](#repository-structure)
-- [References](#references)
-- [Technical details](#technical-details)
+- [Delete](#delete)
+- [Troubleshooting](#troubleshooting)
+- [Reference](#reference)
 - [Tags](#tags)
 
-## Overview
+## Description
 
-> **CONTRIBUTOR TODO: add overview**
->
-> Write 2-4 sentences that give a high-level summary of what this quickstart does.
->
-> **Focus on:**
-> - What problem does this solve?
-> - Who is this for? (e.g., "Healthcare providers managing patient data")
-> - What will users be able to do after deploying this?
->
-> Keep it non-technical - save technical details for later sections.
+This AI quickstart shows how a telecom revenue assurance team can use a conversational AI agent to investigate customer churn risk, billing fraud, and network Quality of Experience (QoE) across customer segments in real time. Rather than running manual SQL queries or switching between dashboards, an analyst asks the agent in plain language and receives model-backed insights in seconds — with the agent deciding autonomously which tools and models to call.
 
-## Detailed description
+The agent runs on Red Hat® OpenShift AI using LlamaStack with a Llama 3.1 8B Instruct model served by vLLM. It uses a ReAct loop to decide when to query the customer database, when to invoke the churn or fraud prediction models, and when to fetch QoE metrics — combining SQL data retrieval with live ML inference to produce actionable analyst guidance. All three prediction models (churn, fraud/RAFM, and QoE) are served as KServe InferenceServices on Red Hat OpenShift AI, using LightGBM and ONNX runtimes.
 
-> **CONTRIBUTOR TODO: add detailed description**
->
-> Write 2-3 paragraphs that expand on the overview.
->
-> **Include:**
-> - The business/industry problem in more detail
-> - How this quickstart addresses that problem
-> - Key features or capabilities users will gain
-> - Real-world scenarios where this would be used
->
-> This is about the USE CASE, not the technology. Don't explain how it works technically yet.
->
-> **Example:** "In healthcare settings, clinicians often need to quickly access patient information while ensuring HIPAA compliance. This quickstart demonstrates how AI can summarize patient records while maintaining strict data privacy through guardrails..."
+A React dashboard gives analysts a high-level regional risk summary and surfaces the same AI agent through a floating chat panel. A FastAPI backend orchestrates communication between the UI, the LlamaStack agent, and a PostgreSQL database populated by a one-off data generator job using synthetic but statistically realistic telco customer, transaction, and network data.
 
+At deployment, a scoring job pre-computes churn, fraud, and QoE predictions for all customers and writes them to the database. The dashboard reads these stored scores to display summary metrics — churn rate, fraud count, and average QoE by region — without hitting the models at runtime. The agent operates on-demand, filtering, slicing, and cross-referencing the same model APIs to answer analyst follow-up questions in real time.
 
-### See it in action
+## Architecture
 
-> **CONTRIBUTOR TODO: add demo links**
->
-> This section is RECOMMENDED but optional.
->
-> **Add links to:**
-> - Arcade interactive demos (preferred)
-> - YouTube/video walkthroughs
-> - Live demo instances (if available)
->
-> This helps users see the value before deploying. Many users don't have immediate access to deployment environments, so demos are crucial.
->
-> **Example:**
-> - [Try the interactive demo](https://arcade.example.com/your-demo)
-> - [Watch the 3-minute walkthrough](https://youtube.com/example)
+```mermaid
+flowchart TB
+    User -->|HTTP| Route[OpenShift Route]
+    Route --> Frontend[React Dashboard]
+    Frontend -->|REST 🔒| Backend[FastAPI API]
+    Backend -->|SQL 🔒| DB{{PostgreSQL}}
+    Backend --> OGX{{ogx-ai / LlamaStack}}
+    OGX -->|OpenAI API| LLM{{llm-service / vLLM}}
+    OGX -->|Python SDK| PredTools[Prediction Tools]
+    OGX -->|Python SDK| DataFetch[Data Fetch Tool]
+    PredTools -->|Customer IDs| DataFetch
+    DataFetch -->|SQL 🔒| DB
+    PredTools -->|KServe v2 🔒| ChurnModel[KServe: Churn Model]
+    PredTools -->|KServe v2 🔒| FraudModel[KServe: Fraud Model]
+    PredTools -->|KServe v2 🔒| QoEModel[KServe: QoE Model]
+    DataGen[Data Generator] -->|SQL| DB
+    Scoring[Scoring Job] -->|HTTP batch predict| PredTools
+    Scoring -->|SQL write scores 🔒| DB
+```
 
-### Architecture diagrams
+| Component | Role |
+|---|---|
+| **React Dashboard** | Regional risk metrics + floating AI chat interface |
+| **FastAPI Backend** | REST API — routes chat and metrics requests |
+| **ogx-ai / LlamaStack** | Agent orchestration and ReAct tool loop |
+| **vLLM** | Llama 3.1 8B Instruct on-cluster inference |
+| **Data Fetch Tool** | Queries PostgreSQL for customer and transaction data |
+| **Prediction Tools** | Wraps KServe Churn, Fraud, and QoE model endpoints |
+| **PostgreSQL** | Customer, transaction, and regional QoE data store |
+| **Data Generator** | One-off job that populates the database with synthetic telco data |
+| **Scoring Job** | One-off batch job that runs churn, fraud, and QoE predictions for all customers and writes scores back to PostgreSQL |
+| **KServe Models** | LightGBM (churn), ONNX (fraud/RAFM), ONNX (QoE) |
 
-> **CONTRIBUTOR TODO: add architecture diagram**
->
-> This section is REQUIRED.
->
-> **Include:**
-> - A clear architecture diagram showing components and data flow
-> - Put image files in `docs/images/` folder
-> - Use descriptive filenames (e.g., `architecture-overview.png`)
-> - Add alt text for accessibility
->
-> **Example:**
-> ```
-> ![Architecture diagram showing data flow from user input through LLM to output](docs/images/architecture-overview.png)
-> ```
->
-> Optionally add a brief explanation of the diagram below the image.
+**Agent tools** called by the ReAct loop:
 
+| Tool | Category | Purpose |
+|---|---|---|
+| `query_db` | Data | Grouped customer query with churn/fraud/region filters |
+| `count_customers` | Data | Count customers matching a single condition |
+| `cross_metric_count` | Data | Count customers matching two cross-metric conditions |
+| `list_customers` | Data | List individual customers with filters |
+| `fetch_customer_data` | Data | Full profile for a specific customer |
+| `fetch_transaction_data` | Data | Transaction records for a specific customer |
+| `predict_churn` | Prediction | Churn risk score via KServe |
+| `predict_fraud` | Prediction | Fraud flag via KServe |
+| `predict_qoe` | Prediction | QoE score via KServe |
+
+## Example Queries
+
+The agent reasons across all three models in a single conversation. Below are representative examples using the synthetic dataset included in this quickstart.
+
+### "Why is churn so high in the West?"
+
+The agent queries the database to segment customers by region, runs churn predictions per segment, and finds Region West at 35% churn versus 12% average elsewhere — 870 customers at risk. It then checks QoE for that region (34/100 vs 72 average) and fraud rate (0.5%, same as other regions). Response:
+
+> *"Churn is concentrated in Region West — 35% of customers there are predicted to churn vs 12% average elsewhere. Starlink QoE in that region is 34/100, significantly below the 72 average. Poor satellite coverage correlates with the high churn rate. Fraud rate is normal (~0.5%), so billing issues are not a factor. 870 customers are at risk — consider investigating network coverage or targeting them with retention offers."*
+
+### "Are fraud-flagged customers also churning?"
+
+The agent fetches the fraud-flagged customer list, runs churn predictions on each, and cross-references the results:
+
+> *"66% of fraud-flagged customers are also at churn risk. These may be billing disputes rather than actual fraud — review before blocking accounts."*
+
+### "Which region needs attention first?"
+
+The agent scores QoE across all regions, finds the worst performer, then checks churn and fraud for those customers to build a revenue-at-risk ranking:
+
+> *"Region West is the clear priority: QoE of 34/100 and 35% churn (870 of 2,500 customers), versus 12% churn elsewhere. Only 8 of those 870 also have fraud-flagged transactions, so billing anomalies are not compounding the problem. Poor satellite coverage is the root cause."*
 
 ## Requirements
 
-> _This section groups all prerequisites users need before deploying_
+### Hardware
 
-### Minimum hardware requirements
+| Node Type | Qty | vCPU | Memory |
+|---|---|---|---|
+| Control Plane | 3 | 8 | 16 GB |
+| Worker | 2 | 16 | 32 GB |
+| GPU Worker (optional) | 1 | 16 | 64 GB + 1× NVIDIA A10 / A100 / L40S |
 
-> **CONTRIBUTOR TODO: add minimum hardware requirements**
->
-> This section is REQUIRED. Be SPECIFIC - don't say "GPU", say exactly which GPU.
->
-> **Include:**
-> - CPU: specify cores, requests, and limits
-> - Memory: specify GiB, requests, and limits  
-> - GPU: exact models (e.g., "NVIDIA A10, A100, L40S, or T4")
-> - Storage: if significant storage is needed
->
-> If your quickstart deploys a model, list the model's resource requirements separately.
->
-> **Example:**
->
-> **Application:**
-> - CPU: 2 vCPU (request) / 4 vCPU (limit)
-> - Memory: 4 GiB (request) / 8 GiB (limit)
->
-> **LLM (if deploying a model):**
-> - CPU: 4 vCPU (request) / 8 vCPU (limit)
-> - Memory: 16 GiB (request) / 32 GiB (limit)
-> - GPU: 1 NVIDIA GPU (A10, A100, L40S, T4, or similar)
->
-> > **Note**: If using MaaS (external model endpoint), GPU is not required.
+> **GPU note:** A GPU node is required to run the LLM service on-cluster (Step 2). Without one, skip Step 2 and point `ogx-ai` at a remote OpenAI-compatible vLLM endpoint: `make deploy-ogx-ai VLLM_URL=<your-vllm-url>`.
 
-### Minimum software requirements
+### Software
 
-> **CONTRIBUTOR TODO: add minimum software requirements**
->
-> This section is REQUIRED. Be SPECIFIC about versions.
->
-> **Include:**
-> - OpenShift version (e.g., "OpenShift 4.14 or later")
-> - OpenShift AI version (e.g., "OpenShift AI 2.22 or later")
-> - Other platform dependencies (operators, services)
-> - Client tools (oc CLI, helm, etc.)
->
-> **BAD:** "Requires OpenShift AI"  
-> **GOOD:** "Tested with OpenShift AI 2.22-2.25 on OpenShift 4.14+"
+| Software | Tested version |
+|---|---|
+| Red Hat OpenShift Container Platform | 4.22 (stable-4.22) |
+| Red Hat OpenShift AI | 3.4.2 |
+| Kubeflow Pipelines | 2.16.0 |
+| KServe | 0.17.0 |
+| Helm | 3.14+ |
+| `oc` CLI | 4.22 |
 
-### Required user permissions
+### Permissions
 
-> **CONTRIBUTOR TODO: add user permissions**
->
-> This section is REQUIRED. Be clear about what permissions are needed.
->
-> **Options:**
-> - Regular user with standard permissions (preferred!)
-> - Namespace admin
-> - Cluster admin (only if absolutely necessary - explain why)
->
-> **Example:**
->
-> This quickstart can be deployed by any user with:
-> - Permission to create projects/namespaces
-> - Permission to deploy applications via Helm
-> - No cluster admin access required
-
-
-## Deploy
-
-> _This section contains all deployment instructions_
+| Resource group | Required role |
+|---|---|
+| Helm charts (`pgvector`, `ogx-ai`, tools, frontend) | Namespace admin |
+| KServe manifests (`deploy/serving/`) | Namespace admin + OpenShift AI project member |
 
 ### Prerequisites
 
-> **CONTRIBUTOR TODO: verify and update prerequisites**
->
-> List specific items users must have/do BEFORE running installation commands.
->
-> **Include:**
-> - Access to specific platforms/clusters
-> - CLI tools installed (with version requirements)
-> - Authentication/credentials needed
-> - Network access requirements
->
-> **Example:**
->
-> Before deploying, ensure you have:
-> - Access to a Red Hat OpenShift cluster with OpenShift AI 2.22+ installed
-> - `oc` CLI (version 4.14+) installed and authenticated
-> - `helm` CLI (version 3.12+) installed
-> - API key for your model endpoint (if using MaaS)
+Before deploying, ensure the following are in place:
 
-### Installation
+- **OCP CLI login** — you are authenticated against the target cluster (`oc whoami` returns your username).
+- **OCP internal registry enabled** — the cluster internal registry is running and accessible; required by the `make build-*` targets that push images via `BuildConfig` and `ImageStream`.
+- **Object storage** — an S3-compatible bucket (MinIO or equivalent) must be available; used by the Data Science Pipeline Application (DSPA) and the data connection for model artifacts. If not already deployed, use `make deploy-minio` (see Step 1 below).
 
-> **CONTRIBUTOR TODO: customize installation steps**
->
-> Provide STEP-BY-STEP instructions. Assume users have limited knowledge.
->
-> **Include:**
-> - Clear numbered steps
-> - Exact commands to run (users should be able to copy/paste)
-> - Explanation of what each major step does
-> - Any configuration choices users need to make
->
-> Test these steps yourself on a fresh environment to ensure they work!
->
-> **Key things to update:**
-> - Replace "my-quickstart" and "YOUR_QUICKSTART_NAME" with your actual names
-> - Add any additional --set flags specific to your quickstart
-> - If your quickstart requires a model, keep the model options section below
-> - If your quickstart does NOT require a model, remove the model options section below entirely
+## Deploy
 
-1. Clone the repository:
-```bash
-git clone https://github.com/rh-ai-quickstart/YOUR_QUICKSTART_NAME.git
-cd YOUR_QUICKSTART_NAME
-```
+### 0. Set environment variables
 
-2. Create a new OpenShift project:
-```bash
-PROJECT="my-quickstart"
-oc new-project ${PROJECT}
-```
-
-3. Install using Helm:
+Export these once before running any step:
 
 ```bash
-helm install my-quickstart ./chart --namespace ${PROJECT}
+export NAMESPACE=telco-revenue-assurance-agent
+export PGVECTOR_PASSWORD=<your-password>
+export MINIO_PASSWORD=<your-minio-password>
+export HF_TOKEN=<your-huggingface-token>
 ```
 
-#### If your quickstart requires a model
+> `NAMESPACE` defaults to `telco-revenue-assurance-agent` and is inherited by all `make` targets automatically — no need to repeat it on each command. To use a different namespace, change the export above. Override any other value inline: `make deploy-X VAR=value`.
 
-**Option A: Use your own model (MaaS - Model as a Service)**
-
-If you have an existing model endpoint, provide the model name, endpoint, and API key:
-```bash
-helm install my-quickstart ./chart --namespace ${PROJECT} \
-  --set model.name=YOUR_MODEL_NAME \
-  --set model.endpoint=YOUR_MODEL_ENDPOINT \
-  --set model.api_key=YOUR_API_KEY
-```
-
-> **Note**: The `model.endpoint` should be the full URL including protocol and port if needed (e.g., `https://my-model.example.com` or `http://my-model:8080`).
-
-**Option B: Deploy with a model included in the chart**
-
-If you don't provide any model configuration, the chart will deploy a default model on your cluster:
-```bash
-helm install my-quickstart ./chart --namespace ${PROJECT}
-```
-
-> **Note**: Option B requires a GPU available in your cluster for the LLM deployment. See [Minimum hardware requirements](#minimum-hardware-requirements) for details. You must add your own model InferenceService template under `chart/templates/` for this option to work.
-
-#### Testing model access (before deploying)
-
-If you are bringing your own model (Option A), you can verify the endpoint is reachable **before** installing the chart:
+Clone the repo and change into the repo root:
 
 ```bash
-oc run test-model-access --rm -it --restart=Never \
-  --image=registry.access.redhat.com/ubi9/ubi-minimal:latest \
-  -- /bin/sh -c 'curl -sf --max-time 10 \
-    -H "Authorization: Bearer YOUR_API_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"model\": \"YOUR_MODEL_NAME\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one word.\"}], \"max_tokens\": 10}" \
-    "YOUR_MODEL_ENDPOINT/v1/chat/completions" && echo "" && echo "SUCCESS" || echo "FAILED"'
+git clone https://github.com/rh-ai-quickstart/telco-revenue-assurance-agent.git
+cd telco-revenue-assurance-agent
 ```
 
-Replace `YOUR_API_KEY`, `YOUR_MODEL_NAME`, and `YOUR_MODEL_ENDPOINT` with your actual values.
+---
 
-### Validating the deployment
+### Step 1 — MinIO (object storage)
 
-> **CONTRIBUTOR TODO: add validation steps**
->
-> Tell users how to verify the deployment was successful.
->
-> **Include:**
-> - Commands to check pod status
-> - How to access the application (routes, URLs)
-> - How to verify functionality (e.g., "run helm test")
-> - Expected output/behavior
->
-> **Example:**
->
-> 1. Check all pods are running:
->    ```bash
->    oc get pods -n ${PROJECT}
->    ```
->    
-> 2. Get the application URL:
->    ```bash
->    echo https://$(oc get route/my-app -n ${PROJECT} --template='{{.spec.host}}')
->    ```
->    
-> 3. Test the endpoint is responding:
->    ```bash
->    curl -s https://$(oc get route/my-app -n ${PROJECT} --template='{{.spec.host}}')/health
->    ```
->
-> If your quickstart uses a model, you can run the included Helm test:
-> ```bash
-> helm test my-quickstart --namespace ${PROJECT}
-> ```
->
-> If your quickstart does not use a model, remove the helm test step and add your own validation steps.
+Deploys MinIO into a dedicated namespace (`showcase` by default). MinIO is used to store training datasets, KFP pipeline artifacts, and trained model files consumed by KServe. Skip this step if you already have an S3-compatible object store available.
 
-### Delete
-
-> **CONTRIBUTOR TODO: verify deletion steps**
->
-> Provide clear instructions to cleanly remove the deployment.
->
-> **Include:**
-> - Command to uninstall via Helm
-> - Any manual cleanup needed (secrets, PVCs, etc.)
-> - How to verify complete removal
->
-> Users should be able to return their environment to pre-deployment state.
->
-> **Example:**
->
-> To completely remove the deployment:
->
-> 1. Uninstall the Helm release:
->    ```bash
->    helm uninstall my-quickstart --namespace ${PROJECT}
->    ```
->
-> 2. (Optional) Delete the project:
->    ```bash
->    oc delete project ${PROJECT}
->    ```
-
-## Repository structure
-
-> **CONTRIBUTOR TODO: update the file tree**
->
-> Show the organization of your repository so contributors understand where things are.
->
-> Update this to reflect your actual structure - add application code directories, additional config folders, etc.
->
-> Keep it concise - don't list every single file, just the important directories and key files.
-
-```
-.
-├── chart/                    # Helm chart for deploying the quickstart
-│   ├── Chart.yaml            # Chart metadata
-│   ├── values.yaml           # Default configuration values (model info, resources, etc.)
-│   └── templates/            # Kubernetes resource templates
-│       ├── test-model-access.yaml  # Helm test for verifying model connectivity
-│       └── ...               # Add your templates here (deployments, services, etc.)
-├── docs/
-│   └── images/               # Architecture diagrams and screenshots
-└── README.md
+```bash
+make deploy-minio
 ```
 
-> **EXAMPLE:** If your quickstart includes application source code (e.g., a web UI, API server), add it as a sibling directory to chart/. For example:
-> ```
-> ├── my-app/                 # Application source code
-> │   ├── app.py
-> │   ├── Containerfile
-> │   └── requirements.txt
-> ```
+Override the namespace or storage class if needed:
 
-## References
+```bash
+make deploy-minio MINIO_NAMESPACE=showcase MINIO_STORAGE_CLASS=gp3-csi
+```
 
-> **CONTRIBUTOR TODO: add relevant links**
->
-> This section is RECOMMENDED but optional.
->
-> **Include links to:**
-> - Official documentation for technologies used
-> - Blog posts or articles about the use case
-> - Research papers or whitepapers
-> - Related quickstarts or examples
-> - Partner/vendor documentation
->
-> **Example:**
-> - [OpenShift AI Documentation](https://docs.redhat.com/en/openshift-ai)
-> - [LangChain Documentation](https://langchain.com/docs)
-> - [Blog: Building HIPAA-Compliant AI Applications](https://example.com/blog)
->
-> _Remove this section entirely if you have no references to add._
+**Verify:**
+```bash
+oc get pods -n showcase -l app=minio
+oc get route minio-api minio-ui -n showcase
+```
+Expected: pod in `Running` state and two routes with assigned hostnames.
 
-## Technical details
+---
 
-> **CONTRIBUTOR TODO: add technical deep dive**
->
-> This section is OPTIONAL.
->
-> **Use this for:**
-> - How the components work together technically
-> - Implementation details developers would want to know
-> - Model details (size, quantization, context window)
-> - API endpoints and integration points
-> - Performance characteristics
->
-> This is where technical depth goes - the earlier sections focus on the use case.
->
-> _Remove this section if not needed._
+### Step 2 — Namespace
+
+Creates the OpenShift project and labels it as an OpenShift AI Data Science Project. The default namespace is `telco-revenue-assurance-agent`.
+
+```bash
+make deploy-namespace
+```
+
+**Verify:**
+```bash
+oc get project $NAMESPACE
+```
+Expected: project in `Active` state.
+
+---
+
+### Step 3 — LLM Service (vLLM)
+
+Deploys the vLLM serving runtime with Llama 3.1 8B Instruct into the project namespace. Requires a GPU node.
+
+> **Demo note:** This quickstart was validated using a remote vLLM endpoint on a separate GPU cluster. If no GPU node is available, skip this step and pass `VLLM_URL` pointing to your remote endpoint when deploying OGX in Step 12.
+
+**HuggingFace prerequisites:**
+- Create an access token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+- Request access to the model at [huggingface.co/meta-llama/Llama-3.1-8B-Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct)
+
+```bash
+make deploy-llm-service HF_TOKEN=$HF_TOKEN
+```
+
+Once deployed, the internal vLLM service URL is `http://llama-3-1-8b-instruct-vllm.$NAMESPACE.svc:80/v1`. Pass it when deploying OGX in Step 12:
+
+```bash
+make deploy-ogx-ai VLLM_URL=http://llama-3-1-8b-instruct-vllm.$NAMESPACE.svc:80/v1
+```
+
+**Verify:**
+```bash
+oc get inferenceservice llama-3-1-8b-instruct -n $NAMESPACE
+```
+Expected: `InferenceService` in `Ready` state.
+
+---
+
+### Step 4 — Secrets
+
+Creates three secrets in the project namespace (`telco-revenue-assurance-agent` by default): the database URL, the MinIO data connection for DSPA, and the S3 data connection for KServe model serving.
+
+```bash
+make deploy-secrets \
+  PGVECTOR_PASSWORD=$PGVECTOR_PASSWORD \
+  MINIO_PASSWORD=$MINIO_PASSWORD
+```
+
+**Verify:**
+```bash
+oc get secret database-secret dashboard-dspa-secret my-data-connection \
+  -n $NAMESPACE
+```
+Expected: all three secrets show `Opaque` type.
+
+---
+
+### Step 5 — PostgreSQL
+
+Deploys a PostgreSQL instance. This is the primary data store for customer, transaction, and scoring data.
+
+```bash
+make deploy-pgvector \
+  PGVECTOR_PASSWORD=$PGVECTOR_PASSWORD
+```
+
+**Verify:**
+```bash
+oc get pods -n $NAMESPACE -l app.kubernetes.io/instance=pgvector
+```
+Expected: pod in `Running` state. Confirm connectivity:
+```bash
+oc exec postgres-0 -n $NAMESPACE -- psql -U postgres -c '\l'
+```
+
+---
+
+### Step 6 — Data Science Pipeline Application (DSPA)
+
+Deploys the Kubeflow Pipelines (KFP) server backed by MinIO object storage. This is used to run the ML training pipelines for churn, fraud, and QoE models.
+
+```bash
+make deploy-pipelines
+```
+
+> **MinIO host:** the default is `minio-service.showcase.svc:9000`. If your MinIO is external, override: `make deploy-pipelines MINIO_HOST=minio-api-<ns>.apps.<cluster> MINIO_SCHEME=https MINIO_PORT=443`.
+
+**Verify:**
+```bash
+oc get datasciencepipelinesapplication dspa -n $NAMESPACE
+```
+Expected: `READY` column is `True`. For full status:
+```bash
+oc get datasciencepipelinesapplication dspa -n $NAMESPACE \
+  -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}{"\n"}'
+```
+
+---
+
+### Step 7 — ML Training Pipelines
+
+Builds the pipeline base image, uploads training datasets to MinIO, then runs the three KFP training pipelines (churn, fraud/RAFM, QoE). Each pipeline trains a model and writes the artifact to S3 at a path that KServe will serve from.
+
+```bash
+# Build the pipeline base image (once — skip if already done)
+make build-pipeline-base
+
+# Upload training datasets to MinIO (once — skip if already done)
+make upload-datasets
+
+# Run the three training pipelines
+make run-pipeline-churn
+make run-pipeline-fraud
+make run-pipeline-qoe
+```
+
+Each `run-pipeline-*` command auto-detects the KFP endpoint and bearer token from your active OCP session and submits the pipeline run programmatically.
+
+| Make target | Model trained | S3 output path |
+|---|---|---|
+| `run-pipeline-churn` | Churn (LightGBM) | `models/churn/1/` |
+| `run-pipeline-fraud` | Fraud/RAFM (ONNX) | `models/fraud/1/` |
+| `run-pipeline-qoe` | QoE (ONNX) | `models/starlink-qoe/1/` |
+
+**Verify:**
+
+```bash
+oc get route ds-pipeline-dspa -n $NAMESPACE \
+  -o jsonpath='{.spec.host}{"\n"}'
+```
+
+Open the printed URL in a browser → **Experiments** → confirm each pipeline run completes successfully. Model files should appear in MinIO at the S3 output paths listed above.
+
+---
+
+### Step 8 — Model Serving (KServe InferenceServices)
+
+Deploys three `ServingRuntime` and three `InferenceService` resources for the churn (LightGBM), fraud/RAFM (ONNX), and QoE (ONNX) models.
+
+```bash
+make deploy-serving
+```
+
+**Verify:**
+```bash
+oc get servingruntime,inferenceservice -n $NAMESPACE
+```
+Expected: 3 `ServingRuntime` and 3 `InferenceService` resources. Models remain `Unknown/Loading` until the pipeline runs in Step 5 have written model files to S3 — that is expected at this stage.
+
+---
+
+### Step 9 — Data Generator
+
+Builds and runs a one-off Kubernetes Job that populates PostgreSQL with 10,000 synthetic but statistically realistic telco customer and transaction records.
+
+```bash
+make build-data-generator
+make deploy-data-gen \
+  PGVECTOR_PASSWORD=$PGVECTOR_PASSWORD
+```
+
+The Makefile waits for the Job to complete (up to 10 minutes). To follow logs live:
+```bash
+oc logs -f -l app.kubernetes.io/instance=data-gen -n $NAMESPACE
+```
+
+**Verify:**
+```bash
+oc get job -l app.kubernetes.io/instance=data-gen -n $NAMESPACE
+oc exec postgres-0 -n $NAMESPACE -- psql -U postgres -d postgres \
+  -c "SELECT COUNT(*) FROM customers;"
+```
+Expected: Job in `Complete` state, query returns `10000`.
+
+---
+
+### Step 10 — Data Fetch Tool
+
+Builds and deploys a FastAPI microservice that exposes structured SQL queries over HTTP. The agent and predictor use it to look up customer and transaction records, as well as pre-computed inference results (churn, fraud, and QoE scores written by the scoring job), without direct database access.
+
+```bash
+make build-data-fetch
+make deploy-data-fetch
+```
+
+**Verify:**
+```bash
+oc get pods -n $NAMESPACE -l app.kubernetes.io/instance=data-fetch
+oc get svc data-fetch -n $NAMESPACE
+```
+Expected: pod `Running`, service `data-fetch` on port `8080`.
+
+---
+
+### Step 11 — Predictor Tool
+
+Builds and deploys the predictor service that wraps the three KServe InferenceService endpoints. The agent calls this tool to score individual customers for churn risk, fraud, and QoE.
+
+```bash
+make build-predictor
+make deploy-predictor
+```
+
+**Verify:**
+```bash
+oc get pods -n $NAMESPACE -l app.kubernetes.io/instance=predictor
+oc get svc predictor -n $NAMESPACE
+```
+Expected: pod `Running`, service `predictor` on port `8080`.
+
+---
+
+### Step 12 — ogx-ai / LlamaStack Agent
+
+Deploys the LlamaStack agent server (ogx-ai). This is the ReAct loop that receives analyst questions, decides which tools to call, and streams responses back to the backend.
+
+If you deployed the LLM service in Step 2, pass the internal vLLM URL:
+
+```bash
+make deploy-ogx-ai VLLM_URL=http://llama-3-1-8b-instruct-vllm.$NAMESPACE.svc:80/v1
+```
+
+Otherwise, pass your remote vLLM endpoint:
+
+```bash
+make deploy-ogx-ai VLLM_URL=<your-vllm-endpoint>/v1
+```
+
+**Verify:**
+```bash
+oc get pods -n $NAMESPACE -l app.kubernetes.io/instance=ogx-ai
+oc exec -n $NAMESPACE deploy/ogx-ai -- \
+  curl -s http://localhost:8321/v1/models | python3 -m json.tool
+```
+Expected: pod `Running`, models list includes `remote-llm/meta-llama/Llama-3.1-8B-Instruct`.
+
+---
+
+### Step 13 — Backend
+
+Builds and deploys the FastAPI backend that orchestrates dashboard metrics queries, agent chat sessions, and streaming responses to the frontend.
+
+```bash
+make build-backend
+make deploy-backend
+```
+
+**Verify:**
+```bash
+oc get pods -n $NAMESPACE -l app.kubernetes.io/instance=backend
+curl -sk https://$(oc get route backend -n $NAMESPACE \
+  -o jsonpath='{.spec.host}')/health
+```
+Expected: `{"status":"ok"}`.
+
+---
+
+### Step 14 — Scoring Job
+
+Builds and runs a one-off Job that calls all three prediction models for every customer and writes the scores back to PostgreSQL. The dashboard and agent rely on these pre-computed scores.
+
+```bash
+make build-scoring
+make deploy-scoring
+```
+
+**Verify:**
+```bash
+oc get job scoring -n $NAMESPACE
+oc logs job/scoring -n $NAMESPACE
+```
+Expected: Job completes, logs show churn/fraud/QoE scores written for all 10,000 customers.
+
+---
+
+### Step 15 — Frontend
+
+Builds and deploys the React dashboard. It includes a regional risk metrics view and the floating AI chat panel.
+
+```bash
+make build-frontend
+make deploy-frontend
+```
+
+**Verify:**
+```bash
+oc get route -n $NAMESPACE
+```
+Open the `frontend` route URL in a browser. The dashboard should display regional risk metrics and the AI chat panel should respond to analyst questions in the bottom-right corner.
+
+## Delete
+
+```bash
+make undeploy-all
+```
+
+This uninstalls all Helm releases and removes the KServe resources. Persistent volumes are retained by default. To delete them:
+
+```bash
+oc delete pvc --all -n $NAMESPACE
+```
+
+## Troubleshooting
+
+### OGX / LlamaStack agent returns "Internal server error"
+
+The model ID configured in the backend does not match what OGX registered. Verify the available models:
+
+```bash
+oc exec -n $NAMESPACE deploy/ogx-ai -- \
+  curl -s http://localhost:8321/v1/models | python3 -m json.tool
+```
+
+The model ID must match the `ogx.modelId` value in `deploy/helm/backend/values.yaml`. The expected value for a `remote-llm` provider is `remote-llm/meta-llama/Llama-3.1-8B-Instruct`.
+
+---
+
+### KServe InferenceServices stuck in `Unknown` or `Loading`
+
+This is expected until the ML training pipelines (Step 6) have written model files to MinIO. Verify model files exist:
+
+```bash
+oc get inferenceservice -n $NAMESPACE
+```
+
+If pipelines have completed and models are still not ready, check that the `my-data-connection` secret points to the correct MinIO endpoint and bucket.
+
+---
+
+### Pipeline base image build fails
+
+Ensure the OCP internal registry is enabled and the `pipeline-base` BuildConfig was applied:
+
+```bash
+oc get buildconfig pipeline-base -n $NAMESPACE
+oc logs bc/pipeline-base -n $NAMESPACE
+```
+
+---
+
+### MinIO connection refused from DSPA or pipelines
+
+Verify MinIO is reachable from the project namespace:
+
+```bash
+oc run minio-test --rm -it --image=curlimages/curl --restart=Never -n $NAMESPACE -- \
+  curl -s http://minio-service.showcase.svc:9000/minio/health/live
+```
+
+Expected: HTTP 200. If not, check MinIO pod status in the `showcase` namespace.
+
+---
+
+### Scoring job completes but dashboard shows no metrics
+
+The backend caches metrics at startup. Restart the backend pod after the scoring job completes:
+
+```bash
+oc rollout restart deployment/backend -n $NAMESPACE
+```
+
+## Reference
+
+| Resource | Description |
+|---|---|
+| [Data Generator](data-generator/README.md) | Synthetic data generation parameters and seeding options |
+| [Prediction Tools](tools/predictor/README.md) | Prediction service configuration, model URLs, and TLS setup |
+| [KFP Pipelines](demo/pipelines/) | Kubeflow Pipeline definitions for model training |
 
 ## Tags
 
-> **CONTRIBUTOR TODO: add metadata and tags for publication**
->
-> Tags are REQUIRED for publication to redhat.com catalog.
->
-> **Fill in:**
-> - **Title:** (must match H1 heading, max 64 chars)
-> - **Description:** (must match short description, max 160 chars)
-> - **Industry:** ONE from the list in CONTRIBUTING.md (e.g., Healthcare, Retail, Financial Services)
-> - **Product:** Primary Red Hat product (e.g., OpenShift AI, OpenShift, RHEL)
-> - **Use case:** Optional descriptor (e.g., security, automation, productivity)
-> - **Partner:** Optional, list partners if applicable (e.g., NVIDIA, Intel)
-> - **Contributor org:** Defaults to "Red Hat" unless partner or community contribution
->
-> **Example:**
->
-> **Title:** Protect patient data with LLM guardrails  
-> **Description:** Deploy HIPAA-compliant AI assistants for healthcare with built-in data protection and audit logging  
-> **Industry:** Healthcare provider  
-> **Product:** OpenShift AI  
-> **Use case:** Security, compliance  
-> **Partner:** N/A  
-> **Contributor org:** Red Hat
+- **Industry:** Telecommunications
+- **Product:** Red Hat OpenShift AI
+- **Use case:** Revenue assurance, churn prediction, fraud detection, network QoE monitoring
