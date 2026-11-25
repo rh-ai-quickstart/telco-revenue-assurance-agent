@@ -1,0 +1,97 @@
+# Plain PostgreSQL using the upstream pgvector Helm chart, without chart patches.
+# Source: https://github.com/rh-ai-quickstart/ai-architecture-charts
+# Commit: 579379152f9dcd915d5b12292f06ea74cb71d3b2
+# Chart: pgvector/helm (0.5.9).
+# Supply credentials via --set secret.user/password/dbname.
+# On upgrades, reuse the password from the existing Secret; changing the
+# Secret does not change the password already stored in the PostgreSQL volume.
+nameOverride: postgres
+fullnameOverride: postgres
+replicaCount: 1
+
+image:
+  repository: docker.io/library/postgres
+  tag: "17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826"
+  pullPolicy: IfNotPresent
+
+externalDatabase:
+  enabled: false
+extraDatabases: []
+serviceAccount:
+  create: false
+
+service:
+  type: ClusterIP
+  port: 5432
+
+secret:
+  create: true
+  user: postgres
+  password: ""
+  dbname: postgres
+  host: postgres
+  port: "5432"
+
+env:
+  - name: POSTGRES_USER
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: user
+  - name: POSTGRES_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: password
+  # The official image initializes POSTGRES_DB; the chart's readiness probe
+  # separately reads POSTGRES_DBNAME and POSTGRES_PORT.
+  - name: POSTGRES_DB
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: dbname
+  - name: POSTGRES_DBNAME
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: dbname
+  - name: POSTGRES_PORT
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: port
+  - name: PGDATA
+    value: /var/lib/postgresql/data/pgdata
+
+# Replace the whole upstream mount list. Its init script always creates the
+# vector extension, so leave initdb-volume unmounted and let the official image
+# initialize the database. The chart still creates an unused init ConfigMap.
+volumeMounts:
+  - name: pg-data
+    mountPath: /var/lib/postgresql
+
+volumeClaimTemplates:
+  - metadata:
+      name: pg-data
+    spec:
+      accessModes: [ReadWriteOnce]
+      resources:
+        requests:
+          storage: 5Gi
+
+# OpenShift assigns the UID and fsGroup from the namespace's SCC range.
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi

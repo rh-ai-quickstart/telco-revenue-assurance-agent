@@ -1,0 +1,15 @@
+apiVersion: v2
+name: data-generator
+description: >
+  One-shot Kubernetes Job that generates synthetic telco customer and
+  transaction data from HuggingFace datasets and seeds a PostgreSQL database.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - telco
+  - data-generator
+  - synthetic-data
+  - openshift
+maintainers:
+  - name: Telco Revenue Assurance Team

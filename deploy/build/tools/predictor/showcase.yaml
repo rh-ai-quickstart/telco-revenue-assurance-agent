@@ -1,0 +1,145 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: predictor
+  namespace: showcase
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: predictor-churn
+  namespace: showcase
+subjects:
+  - kind: ServiceAccount
+    name: predictor
+    namespace: showcase
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: churn-prediction-view-role
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: predictor-fraud
+  namespace: showcase
+subjects:
+  - kind: ServiceAccount
+    name: predictor
+    namespace: showcase
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: fraud-prediction-view-role
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: predictor-service-ca
+  namespace: showcase
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: predictor-config
+  namespace: showcase
+data:
+  DATA_FETCH_URL: http://data-fetch-tool-data-fetch-tool.showcase.svc:8080
+  CHURN_INFER_URL: https://churn-prediction-predictor.showcase.svc:8443/v2/models/churn-prediction/infer
+  FRAUD_INFER_URL: https://fraud-prediction-predictor.showcase.svc:8443/v2/models/fraud-prediction/infer
+  QOE_INFER_URL: http://starlink-qoe-predictor.showcase.svc:8080/v2/models/starlink-qoe/infer
+  INFER_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
+  SSL_CERT_FILE: /etc/predictor-ca/service-ca.crt
+  S3_MODEL_PATH: models/starlink-qoe
+  AWS_S3_ENDPOINT: http://minio-service.showcase.svc:9000
+  CACHE_TTL: "300"
+  CACHE_MAXSIZE: "512"
+  BATCH_MAX_SIZE: "32"
+  BATCH_WAIT_MS: "10"
+  DATA_FETCH_TIMEOUT: "30"
+  INFER_TIMEOUT: "30"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: predictor
+  namespace: showcase
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: predictor
+  template:
+    metadata:
+      labels:
+        app: predictor
+    spec:
+      serviceAccountName: predictor
+      containers:
+        - name: predictor
+          image: image-registry.openshift-image-registry.svc:5000/showcase/predictor:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: predictor-config
+            - secretRef:
+                name: my-data-connection
+          env:
+            - name: AWS_S3_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: predictor-config
+                  key: AWS_S3_ENDPOINT
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: my-data-connection
+                  key: AWS_S3_BUCKET
+          volumeMounts:
+            - name: service-ca
+              mountPath: /etc/predictor-ca
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: service-ca
+          configMap:
+            name: predictor-service-ca
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: predictor
+  namespace: showcase
+spec:
+  selector:
+    app: predictor
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

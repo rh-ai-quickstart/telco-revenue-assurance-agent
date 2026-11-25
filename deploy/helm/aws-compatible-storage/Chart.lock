@@ -1,0 +1,6 @@
+dependencies:
+- name: aws-compatible-storage
+  repository: file:///Users/ecisse/Downloads/ai-architecture-charts/aws-compatible-storage/helm
+  version: 0.2.0
+digest: sha256:34bcfac3772882ea9b0e3669764a4e5a390b7e976e391899eab54bf6aaa0a42a
+generated: "2026-11-21T15:25:15.376364+01:00"

@@ -1,0 +1,30 @@
+aws-compatible-storage:
+  enabled: true
+  fullnameOverride: aws-compatible-storage
+  image:
+    repository: quay.io/rh-aiservices-bu/s4
+    tag: "0.3.2"
+    pullPolicy: IfNotPresent
+  s3:
+    accessKeyId: s4admin
+    secretAccessKey: s4secret
+  auth:
+    enabled: true
+    username: admin
+    password: changeme
+  route:
+    enabled: true
+    s3Api:
+      enabled: true
+  storage:
+    data:
+      size: 80Gi
+      storageClass: lvms-vg1
+
+buckets:
+  create: true
+  names:
+    - mybucket
+
+jobImages:
+  python: registry.redhat.io/ubi9/python-311:latest

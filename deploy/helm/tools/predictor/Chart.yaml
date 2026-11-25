@@ -1,0 +1,11 @@
+apiVersion: v2
+name: predictor
+description: Customer prediction API with preprocessing, caching, and KServe v2 inference.
+type: application
+version: 0.1.1
+appVersion: "1.0.1"
+keywords:
+  - telco
+  - predictor
+  - kserve
+  - openshift

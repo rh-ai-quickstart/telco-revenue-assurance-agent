@@ -1,0 +1,12 @@
+cachetools>=6.0,<8
+# HTTP prediction service. One Uvicorn worker owns each process-local cache.
+fastapi>=0.115,<1
+pydantic>=2.7,<3
+uvicorn>=0.30,<1
+# QoE preprocessing: use artifact-compatible versions from the training image.
+numpy>=1.26,<3
+pandas>=2.0,<4
+scikit-learn>=1.4,<2
+joblib>=1.3,<2
+# S3 QoE artifact source. Customer records come from the data fetch HTTP service.
+boto3>=1.34,<2
