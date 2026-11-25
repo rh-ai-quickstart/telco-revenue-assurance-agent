@@ -1,0 +1,55 @@
+name: telco-revenue-assurance-agent
+displayName: Telco Revenue Assurance Agent
+version: "1.0.0"
+image: docs/images/architecture.png
+description: >
+  AI-powered revenue assurance analyst for telecom operators. A ReAct agent (LlamaStack +
+  Llama 3.1 8B on vLLM) answers analyst questions about churn risk, fraud patterns, and
+  network Quality of Experience (QoE) using three KServe-hosted ML models and a PostgreSQL
+  data layer. Includes a React dashboard and FastAPI backend.
+
+maintainer:
+  name: rh-ai-quickstart
+  github: rh-ai-quickstart
+  repository: https://github.com/rh-ai-quickstart/telco-revenue-assurance-agent
+
+deployment:
+  scope: project
+  chart:
+    type: repo
+    path: deploy/helm/
+    branch: main
+
+prerequisites:
+  - "Red Hat OpenShift Container Platform with OpenShift AI"
+  - "GPU optional — LLM defaults to on-cluster vLLM; a remote OpenAI-compatible endpoint can be substituted"
+  - "CPU: minimum 4 vCPU / Memory: minimum 8 GiB (excluding GPU node)"
+  - "Persistent storage (PVC support)"
+
+values:
+  - key: llm.endpoint
+    label: LLM inference endpoint URL
+    type: string
+    required: false
+  - key: llm.modelId
+    label: LLM model ID
+    type: string
+    required: false
+  - key: pgvector.secret.password
+    label: PostgreSQL password
+    type: string
+    required: false
+
+rbac:
+  - apiGroups: [""]
+    resources: [pods, services, configmaps, secrets]
+    verbs: [get, list, create, delete]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, create, delete]
+  - apiGroups: [route.openshift.io]
+    resources: [routes]
+    verbs: [get, list, create, delete]
+  - apiGroups: [serving.kserve.io]
+    resources: [inferenceservices, servingruntimes]
+    verbs: [get, list, create, delete]

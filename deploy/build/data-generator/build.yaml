@@ -1,0 +1,26 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: data-generator
+---
+# Build context is data_generator/ so the Dockerfile's COPY picks up __init__.py and generate.py.
+# Start with: oc start-build data-generator --from-dir=data_generator/ --follow -n showcase
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: data-generator
+spec:
+  runPolicy: Serial
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: data-generator:latest
+  successfulBuildsHistoryLimit: 2
+  failedBuildsHistoryLimit: 2

@@ -1,0 +1,129 @@
+# ── Container image ────────────────────────────────────────────────────────────
+image:
+  repository: ""
+  tag: "latest"
+  digest: ""
+  pullPolicy: Always
+imagePullSecrets: []
+
+# ── Deployment settings ────────────────────────────────────────────────────────
+replicaCount: 1
+# OPTIONAL: overrides the resource name. Release "predictor" uses "predictor".
+fullnameOverride: ""
+
+# ── Data Fetch settings ────────────────────────────────────────────────────────
+dataFetch:
+  url: ""
+  timeoutSeconds: 30
+  auth:
+    existingSecret: ""
+    key: token
+
+# ── Model Server settings ────────────────────────────────────────────────────────
+models:
+  churn:
+    url: "" # CHURN_INFER_URL
+  fraud:
+    url: "" # FRAUD_INFER_URL
+  qoe:
+    url: "" # QOE_INFER_URL; also requires qoe.artifacts below.
+
+# ── Inference settings ────────────────────────────────────────────────────────
+inference:
+  # OPTIONAL -> INFER_TIMEOUT, seconds, must be > 0.
+  timeoutSeconds: 30
+  auth:
+    # none: no token; serviceAccount: rotating mounted token; secret: bearer token.
+    mode: none
+    # mode=serviceAccount sets INFER_TOKEN_FILE to
+    # /var/run/secrets/kubernetes.io/serviceaccount/token.
+    # It requires serviceAccount.automountServiceAccountToken=true.
+    # mode=secret sets INFER_TOKEN from this existing Secret (never a literal).
+    existingSecret: ""
+    key: token
+
+# ── Inference Cache settings ────────────────────────────────────────────────────────
+cache:
+  ttlSeconds: 300 # CACHE_TTL; >= 0, zero disables completed-result caching.
+  maxSize: 512 # CACHE_MAXSIZE; positive integer, per model per process.
+batching:
+  maxSize: 32 # BATCH_MAX_SIZE; integer 1..1000.
+  waitMs: 10 # BATCH_WAIT_MS; collection window, 0..1000 milliseconds.
+
+qoe:
+  poorThreshold: 40 # QOE_POOR_THRESHOLD
+  goodThreshold: 70 # QOE_GOOD_THRESHOLD; 0 <= poor < good <= 100.
+  artifacts:
+    # REQUIRED when models.qoe.url is set -> AWS_S3_ENDPOINT.
+    endpoint: ""
+    # REQUIRED for QoE -> S3_MODEL_PATH, e.g. models/starlink-qoe.
+    prefix: ""
+    # REQUIRED for QoE -> S3_BUCKET. Choose a literal bucket OR bucketSecret.
+    bucket: ""
+    bucketSecret:
+      name: ""
+      key: AWS_S3_BUCKET
+    # OPTIONAL -> AWS_DEFAULT_REGION. Otherwise use the AWS SDK's defaults.
+    region: ""
+    credentialsSecret:
+      # OPTIONAL: existing Secret. Blank uses the standard AWS credential chain.
+      # Required when your S3 provider needs these credentials and no other
+      # credential provider is available. Do not put credential values here.
+      name: ""
+      accessKeyIdKey: AWS_ACCESS_KEY_ID # -> AWS_ACCESS_KEY_ID
+      secretAccessKeyKey: AWS_SECRET_ACCESS_KEY # -> AWS_SECRET_ACCESS_KEY
+      sessionTokenKey: "" # OPTIONAL Secret key -> AWS_SESSION_TOKEN
+
+tls:
+  http:
+    # OPTIONAL: trust a private CA for data-fetch and inference HTTPS requests.
+    # Choose OpenShift injection OR an existing ConfigMap containing a PEM bundle.
+    # Either option mounts the bundle and sets SSL_CERT_FILE automatically.
+    openShiftServiceCA: false
+    existingConfigMap: ""
+    key: service-ca.crt # Key in existingConfigMap; injection uses service-ca.crt.
+  s3:
+    # OPTIONAL: PEM CA bundle for S3 HTTPS, independent of tls.http.
+    # When set, mounts the bundle and sets AWS_CA_BUNDLE automatically.
+    existingConfigMap: ""
+    key: ca-bundle.pem
+
+serviceAccount:
+  create: true
+  # OPTIONAL when create=true. REQUIRED when create=false.
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+rbac:
+  # OPTIONAL: existing namespace Roles granting access to the model proxies.
+  # The chart creates RoleBindings for its service account, not the Roles.
+  modelRoles:
+    churn: ""
+    fraud: ""
+    qoe: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "2"
+    memory: 1Gi
+
+# Supports OpenShift-assigned UIDs; do not pin runAsUser or fsGroup.
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  seccompProfile:
+    type: RuntimeDefault
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

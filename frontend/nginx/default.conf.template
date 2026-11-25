@@ -1,0 +1,15 @@
+location /api/ {
+    proxy_pass ${BACKEND_URL};
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Connection '';
+    proxy_buffering off;
+    chunked_transfer_encoding on;
+}
+
+location / {
+    root /opt/app-root/src;
+    index index.html;
+    try_files $uri $uri/ /index.html;
+}

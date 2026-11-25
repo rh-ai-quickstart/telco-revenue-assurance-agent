@@ -1,0 +1,20 @@
+{{- range $model, $role := .Values.rbac.modelRoles }}
+{{- if $role }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "predictor.fullname" $ }}-{{ $model }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "predictor.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "predictor.serviceAccountName" $ }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $role }}
+{{- end }}
+{{- end }}

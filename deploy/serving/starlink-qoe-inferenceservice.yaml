@@ -1,0 +1,44 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: starlink-qoe
+  annotations:
+    modelFormat: onnx
+    opendatahub.io/connection-path: models/starlink-qoe/1
+    opendatahub.io/connections: my-data-connection
+    opendatahub.io/hardware-profile-name: default-profile
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: predictive
+    openshift.io/description: Starlink QoE prediction model
+    openshift.io/display-name: starlink-qoe
+    security.opendatahub.io/enable-auth: "true"
+    serving.kserve.io/deploymentMode: Standard
+  labels:
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: "true"
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: RollingUpdate
+    maxReplicas: 3
+    minReplicas: 1
+    model:
+      modelFormat:
+        name: onnx
+        version: "1"
+      name: ""
+      protocolVersion: v2
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: "1"
+          memory: 2Gi
+      runtime: mlserver-runtime
+      storage:
+        key: my-data-connection
+        path: models/starlink-qoe/1
+    serviceAccountName: my-data-connection-sa
+    timeout: 60

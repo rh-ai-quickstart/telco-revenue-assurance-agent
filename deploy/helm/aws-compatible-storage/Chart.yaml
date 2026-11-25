@@ -1,0 +1,11 @@
+apiVersion: v2
+name: aws-compatible-storage
+description: S3-compatible object storage (S4) for telco-revenue-assurance-agent
+type: application
+version: 0.1.0
+appVersion: "0.3.2"
+dependencies:
+  - name: aws-compatible-storage
+    version: 0.2.0
+    repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+    condition: aws-compatible-storage.enabled

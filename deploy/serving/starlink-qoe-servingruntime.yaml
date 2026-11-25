@@ -1,0 +1,76 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: mlserver-runtime
+  labels:
+    opendatahub.io/dashboard: "true"
+  annotations:
+    opendatahub.io/apiProtocol: REST
+    opendatahub.io/runtime-version: 1.7.1
+    opendatahub.io/template-display-name: MLServer ServingRuntime for KServe
+    opendatahub.io/template-name: mlserver-runtime-template
+    opendatahub.io/serving-runtime-scope: namespace
+    openshift.io/display-name: MLServer Runtime for Starlink QoE
+    serving.kserve.io/server-type: mlserver
+spec:
+  annotations:
+    monitoring.opendatahub.io/scrape: "true"
+    opendatahub.io/kserve-runtime: mlserver
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8082"
+  containers:
+    - name: kserve-container
+      image: registry.redhat.io/rhoai/odh-mlserver-rhel9@sha256:ebb3fe12eb37c4fed6bce99a58e31bb6df37c4183166b8ae6e85f6c22a29b92c
+      env:
+        - name: MLSERVER_MODEL_IMPLEMENTATION
+          value: '{{.Labels.modelClass}}'
+        - name: MLSERVER_HTTP_PORT
+          value: "8080"
+        - name: MLSERVER_MODELS_DIR
+          value: /mnt/models
+        - name: MLSERVER_MODEL_MAX_BATCH_SIZE
+          value: "32"
+        - name: MLSERVER_MODEL_MAX_BATCH_TIME
+          value: "0.5"
+        - name: PROMETHEUS_MULTIPROC_DIR
+          value: /tmp/mlserver-metrics
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+      livenessProbe:
+        httpGet:
+          path: /v2/health/live
+          port: 8080
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 6
+      readinessProbe:
+        httpGet:
+          path: /v2/models/{{.Name}}/ready
+          port: 8080
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        timeoutSeconds: 5
+        failureThreshold: 3
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        privileged: false
+        runAsNonRoot: true
+  multiModel: false
+  protocolVersions:
+    - v2
+  supportedModelFormats:
+    - name: onnx
+      version: "1"
+      autoSelect: true

@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "predictor.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "predictor.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "predictor.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "predictor.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "predictor.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: predictor
+          {{- if .Values.image.digest }}
+          image: {{ printf "%s@%s" .Values.image.repository .Values.image.digest | quote }}
+          {{- else }}
+          image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag | quote }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [python, -m, uvicorn]
+          args: [predictor.main:app, --host, 0.0.0.0, --port, "8080", --workers, "1", --log-level, info]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "predictor.fullname" . }}-config
+          {{- if or .Values.dataFetch.auth.existingSecret (eq .Values.inference.auth.mode "secret") .Values.qoe.artifacts.bucketSecret.name .Values.qoe.artifacts.credentialsSecret.name }}
+          env:
+            {{- if .Values.dataFetch.auth.existingSecret }}
+            - name: DATA_FETCH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataFetch.auth.existingSecret }}
+                  key: {{ .Values.dataFetch.auth.key }}
+            {{- end }}
+            {{- if eq .Values.inference.auth.mode "secret" }}
+            - name: INFER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.inference.auth.existingSecret }}
+                  key: {{ .Values.inference.auth.key }}
+            {{- end }}
+            {{- if .Values.qoe.artifacts.bucketSecret.name }}
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.qoe.artifacts.bucketSecret.name }}
+                  key: {{ .Values.qoe.artifacts.bucketSecret.key }}
+            {{- end }}
+            {{- with .Values.qoe.artifacts.credentialsSecret }}
+            {{- if .name }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}
+                  key: {{ .accessKeyIdKey }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}
+                  key: {{ .secretAccessKeyKey }}
+            {{- if .sessionTokenKey }}
+            - name: AWS_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}
+                  key: {{ .sessionTokenKey }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.tls.http.openShiftServiceCA .Values.tls.http.existingConfigMap .Values.tls.s3.existingConfigMap }}
+          volumeMounts:
+            {{- if or .Values.tls.http.openShiftServiceCA .Values.tls.http.existingConfigMap }}
+            - name: service-ca
+              mountPath: /etc/predictor-ca
+              readOnly: true
+            {{- end }}
+            {{- if .Values.tls.s3.existingConfigMap }}
+            - name: s3-ca
+              mountPath: /etc/predictor-s3-ca
+              readOnly: true
+            {{- end }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      {{- if or .Values.tls.http.openShiftServiceCA .Values.tls.http.existingConfigMap .Values.tls.s3.existingConfigMap }}
+      volumes:
+        {{- if or .Values.tls.http.openShiftServiceCA .Values.tls.http.existingConfigMap }}
+        - name: service-ca
+          configMap:
+            name: {{ include "predictor.httpCAName" . }}
+            items:
+              - key: {{ ternary "service-ca.crt" .Values.tls.http.key .Values.tls.http.openShiftServiceCA }}
+                path: service-ca.crt
+        {{- end }}
+        {{- if .Values.tls.s3.existingConfigMap }}
+        - name: s3-ca
+          configMap:
+            name: {{ .Values.tls.s3.existingConfigMap }}
+            items:
+              - key: {{ .Values.tls.s3.key }}
+                path: ca-bundle.pem
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
